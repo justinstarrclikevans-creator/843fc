@@ -15,6 +15,7 @@ export default function DashboardPage() {
   const [role, setRole] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [goals, setGoals] = useState<any[]>([]);
 
   useEffect(() => {
     async function fetchUser() {
@@ -49,6 +50,16 @@ export default function DashboardPage() {
 
       if (profile) {
         setRole(profile.role);
+        
+        if (profile.role === 'player') {
+          const { data: activeGoals } = await supabase
+            .from('synapse_exercises')
+            .select('*')
+            .eq('player_id', user.id)
+            .eq('status', 'active')
+            .order('created_at', { ascending: false });
+          if (activeGoals) setGoals(activeGoals);
+        }
       }
       
       setLoading(false);
@@ -56,6 +67,11 @@ export default function DashboardPage() {
 
     fetchUser();
   }, [router, locale]);
+
+  const markGoalCompleted = async (goalId: string) => {
+    await supabase.from('synapse_exercises').update({ status: 'completed' }).eq('id', goalId);
+    setGoals(goals.filter(g => g.id !== goalId));
+  };
 
   if (loading) return <div className="p-8 text-center">Loading...</div>;
 
@@ -88,6 +104,36 @@ export default function DashboardPage() {
               <button onClick={() => router.push(`/${locale}/learning`)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">View Lessons</button>
             </div>
           </div>
+
+          {/* Active Goals Section */}
+          <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
+            <h2 className="text-xl font-semibold mb-4">My Active SYNAPSE Goals</h2>
+            {goals.length === 0 ? (
+              <p className="text-gray-500 italic">You don't have any active goals right now. Visit the Learning Center to commit to a change!</p>
+            ) : (
+              <div className="space-y-4">
+                {goals.map(goal => (
+                  <div key={goal.id} className="bg-blue-50 border border-blue-100 p-4 rounded-md">
+                    <div className="flex justify-between items-start gap-4">
+                      <div>
+                        <span className="inline-block bg-blue-200 text-blue-800 text-xs font-bold px-2 py-1 rounded mb-2">
+                          Module {goal.module}
+                        </span>
+                        <p className="text-gray-800 whitespace-pre-wrap">{goal.response}</p>
+                      </div>
+                      <button 
+                        onClick={() => markGoalCompleted(goal.id)}
+                        className="shrink-0 bg-green-500 text-white px-3 py-1 text-sm rounded hover:bg-green-600"
+                      >
+                        ✓ Complete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {userId && <FeedbackThread playerId={userId} />}
         </div>
       )}
