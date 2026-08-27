@@ -41,14 +41,20 @@ export default function DashboardPage() {
         return;
       }
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profileFetchError } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
 
+      if (profileFetchError) {
+        console.error("Error fetching profile:", profileFetchError);
+      }
+
       if (profile) {
         setRole(profile.role);
+      } else {
+        console.warn("No profile found for user:", user.id);
       }
       setLoading(false);
     }
@@ -86,6 +92,24 @@ export default function DashboardPage() {
 
       {role === 'coach' && (
         <CoachView />
+      )}
+
+      {role === null && !loading && (
+        <div className="bg-red-50 p-6 rounded-lg border border-red-200 mt-6">
+          <h2 className="text-xl font-semibold text-red-700 mb-2">Profile Missing or Not Found</h2>
+          <p className="text-red-600 mb-4">
+            We couldn't load your role (Player, Parent, Coach). This usually happens if your account was created during a database error.
+          </p>
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push(`/${locale}/signup`);
+            }}
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+          >
+            Log Out & Sign Up Again
+          </button>
+        </div>
       )}
     </div>
   );
