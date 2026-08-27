@@ -43,7 +43,7 @@ export default function DashboardPage() {
 
       const { data: profile, error: profileFetchError } = await supabase
         .from('profiles')
-        .select('role')
+        .select('*')
         .eq('id', user.id)
         .single();
 
@@ -51,22 +51,29 @@ export default function DashboardPage() {
         console.error("Error fetching profile:", profileFetchError);
       }
 
-      if (profile) {
-        setRole(profile.role);
-      } else {
-        console.warn("No profile found for user:", user.id);
-      }
+      setRole(profile ? profile.role : 'NULL_PROFILE');
+      
+      // Temporary debug state to see what's happening
+      (window as any).debugInfo = { user, profile, profileFetchError };
       setLoading(false);
     }
 
     fetchUser();
-  }, [router]);
+  }, [router, locale]);
 
   if (loading) return <div className="p-8 text-center">Loading...</div>;
 
   return (
     <div className="p-4 sm:p-8">
       <h1 className="text-3xl font-bold mb-6">{t('dashboard')}</h1>
+      
+      <div className="bg-yellow-50 p-4 mb-6 border border-yellow-200 text-sm font-mono overflow-auto">
+        <p><strong>Debug Info:</strong></p>
+        <p>Role State: {String(role)}</p>
+        <p>User ID: {String(userId)}</p>
+        <p>Profile Object: {JSON.stringify((window as any).debugInfo?.profile)}</p>
+        <p>Profile Error: {JSON.stringify((window as any).debugInfo?.profileFetchError)}</p>
+      </div>
       
       {role === 'player' && (
         <div className="space-y-6">
