@@ -1,7 +1,7 @@
 'use client';
 
 import { useLocale } from 'next-intl';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useTransition } from 'react';
 
 export default function LanguageSwitcher() {
@@ -12,11 +12,12 @@ export default function LanguageSwitcher() {
 
   const changeLanguage = (nextLocale: string) => {
     startTransition(() => {
-      // Very basic language switch mechanism for the example
-      // In a real app we might want to preserve the rest of the path
-      const currentPath = pathname;
-      const newPath = currentPath.replace(`/${locale}`, `/${nextLocale}`);
-      router.replace(newPath);
+      // pathname already includes /{locale}/rest, e.g. /en/dashboard
+      // Replace just the first path segment (the locale)
+      const segments = pathname.split('/');
+      segments[1] = nextLocale;
+      const newPath = segments.join('/');
+      router.push(newPath);
     });
   };
 
