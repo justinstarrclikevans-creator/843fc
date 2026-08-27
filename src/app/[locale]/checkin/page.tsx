@@ -41,7 +41,15 @@ export default function CheckinPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
-      <h1 className="text-2xl font-bold mb-6">Daily Check-in (TLCs)</h1>
+      <div className="flex items-center mb-8 gap-4">
+        <button 
+          onClick={() => router.push(`/${locale}/dashboard`)}
+          className="text-gray-600 hover:text-gray-900 font-medium"
+        >
+          &larr; Back
+        </button>
+        <h1 className="text-3xl font-bold">Daily TLC Check-in</h1>
+      </div>
       <form onSubmit={handleSubmit} className="space-y-6 bg-white p-6 shadow rounded">
         
         {/* Sleep */}

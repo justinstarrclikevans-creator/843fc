@@ -61,7 +61,18 @@ export default function DashboardPage() {
 
   return (
     <div className="p-4 sm:p-8">
-      <h1 className="text-3xl font-bold mb-6">{t('dashboard')}</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">{t('dashboard')}</h1>
+        <button 
+          onClick={async () => {
+            await supabase.auth.signOut();
+            router.push(`/${locale}`);
+          }}
+          className="text-sm bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300"
+        >
+          Log Out
+        </button>
+      </div>
       
       {role === 'player' && (
         <div className="space-y-6">
