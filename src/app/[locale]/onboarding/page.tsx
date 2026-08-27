@@ -21,9 +21,10 @@ export default function OnboardingPage() {
     setError(null);
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { session } } = await supabase.auth.getSession();
       
-      if (!user) throw new Error("Not logged in");
+      if (!session?.user) throw new Error("Not logged in");
+      const user = session.user;
 
       // Sign Liability Waiver
       const { error: waiverError } = await supabase.from('agreements').insert({

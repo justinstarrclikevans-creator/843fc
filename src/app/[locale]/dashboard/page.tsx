@@ -18,11 +18,13 @@ export default function DashboardPage() {
 
   useEffect(() => {
     async function fetchUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (!session?.user) {
+        console.error("Auth session missing or error:", sessionError);
         router.push(`/${locale}/login`);
         return;
       }
+      const user = session.user;
       setUserId(user.id);
 
       // Check if signed waivers
