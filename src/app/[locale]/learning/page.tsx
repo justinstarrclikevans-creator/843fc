@@ -137,8 +137,6 @@ function getModules(locale: string): ModuleData[] {
   ];
 }
 
-
-
 const colorClasses: Record<string, { border: string; bg: string; badge: string; btn: string }> = {
   blue:   { border: 'border-blue-200',   bg: 'bg-blue-50',   badge: 'bg-blue-100 text-blue-800',   btn: 'bg-blue-600 hover:bg-blue-700' },
   green:  { border: 'border-green-200',  bg: 'bg-green-50',  badge: 'bg-green-100 text-green-800',  btn: 'bg-green-600 hover:bg-green-700' },
@@ -178,63 +176,123 @@ export default function LearningCenterPage() {
     });
   }, []);
 
+  const getEffectiveUserId = async (): Promise<string | null> => {
+    if (userId) return userId;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      setUserId(session.user.id);
+      return session.user.id;
+    }
+    return null;
+  };
+
   const handleCommit = async (moduleId: string, promptText: string, responseText: string) => {
-    if (!responseText.trim() || !userId) return;
+    if (!responseText.trim()) return;
     setSaving(true);
-    await supabase.from('synapse_exercises').insert({
-      player_id: userId,
+
+    const currentUserId = await getEffectiveUserId();
+    if (!currentUserId) {
+      alert(isEs ? 'Error: Por favor inicia sesión nuevamente para guardar tu meta.' : 'Error: Please log in again to save your goal.');
+      setSaving(false);
+      return;
+    }
+
+    const { data, error } = await supabase.from('synapse_exercises').insert({
+      player_id: currentUserId,
       module: moduleId,
       exercise_prompt: promptText,
       response: responseText,
       status: 'active'
-    });
+    }).select();
+
     setSaving(false);
+
+    if (error) {
+      console.error('Error saving goal:', error);
+      alert((isEs ? 'Error al guardar la meta: ' : 'Error saving goal: ') + error.message);
+      return;
+    }
+
     setResponses(prev => ({ ...prev, [moduleId]: '' }));
-    alert('✅ Goal saved! Check your Dashboard to track it.');
+    alert(isEs ? '✅ ¡Meta guardada! Revisa tu Panel para seguirla.' : '✅ Goal saved! Check your Dashboard to track it.');
   };
 
   const handleNameCommit = async () => {
     const filled = Object.values(nameProfile).every(v => v.trim());
-    if (!filled || !userId) return;
+    if (!filled) return;
     setSaving(true);
-    const responseText = `N - Necessity: ${nameProfile.necessity}\nA - Aptitude: ${nameProfile.aptitude}\nM - Motive: ${nameProfile.motive}\nE - Enjoyment: ${nameProfile.enjoyment}`;
-    await supabase.from('synapse_exercises').insert({
-      player_id: userId,
+
+    const currentUserId = await getEffectiveUserId();
+    if (!currentUserId) {
+      alert(isEs ? 'Error: Por favor inicia sesión nuevamente.' : 'Error: Please log in again.');
+      setSaving(false);
+      return;
+    }
+
+    const responseText = `N - Necesidad/Necessity: ${nameProfile.necessity}\nA - Aptitud/Aptitude: ${nameProfile.aptitude}\nM - Motivo/Motive: ${nameProfile.motive}\nE - Disfrute/Enjoyment: ${nameProfile.enjoyment}`;
+    
+    const { error } = await supabase.from('synapse_exercises').insert({
+      player_id: currentUserId,
       module: 'A',
       exercise_prompt: 'NAME Framework Profile',
       response: responseText,
       status: 'active'
-    });
+    }).select();
+
     setSaving(false);
+
+    if (error) {
+      console.error('Error saving NAME profile:', error);
+      alert((isEs ? 'Error al guardar el perfil: ' : 'Error saving profile: ') + error.message);
+      return;
+    }
+
     setNameProfile({ motive: '', aptitude: '', necessity: '', enjoyment: '' });
-    alert('✅ Your NAME profile has been saved!');
+    alert(isEs ? '✅ ¡Tu perfil NAME ha sido guardado en tus metas!' : '✅ Your NAME profile has been saved to your goals!');
   };
 
   const applyApseToProblem = async () => {
-    if (!apsePlan.trim() || !applyingTo || !userId) return;
+    if (!apsePlan.trim() || !applyingTo) return;
     setSaving(true);
-    const responseText = `Applying ${apseModule} to ${applyingTo.item.type}: "${applyingTo.item.text}"\n\nMy plan: ${apsePlan}`;
-    await supabase.from('synapse_exercises').insert({
-      player_id: userId,
+
+    const currentUserId = await getEffectiveUserId();
+    if (!currentUserId) {
+      alert(isEs ? 'Error: Por favor inicia sesión nuevamente.' : 'Error: Please log in again.');
+      setSaving(false);
+      return;
+    }
+
+    const responseText = `Aplicando / Applying ${apseModule} a ${applyingTo.item.type}: "${applyingTo.item.text}"\n\nPlan: ${apsePlan}`;
+    
+    const { error } = await supabase.from('synapse_exercises').insert({
+      player_id: currentUserId,
       module: apseModule,
-      exercise_prompt: `Applied to ${applyingTo.item.type}`,
+      exercise_prompt: `Applied to ${applyingTo.item.type}: ${applyingTo.item.text}`,
       response: responseText,
       status: 'active'
-    });
+    }).select();
+
     setSaving(false);
+
+    if (error) {
+      console.error('Error saving APSE plan:', error);
+      alert((isEs ? 'Error al guardar el plan: ' : 'Error saving plan: ') + error.message);
+      return;
+    }
+
     setApplyingTo(null);
     setApsePlan('');
-    alert('✅ Plan saved to your Dashboard!');
+    alert(isEs ? '✅ ¡Plan guardado en tu Panel!' : '✅ Plan saved to your Dashboard!');
   };
 
   return (
     <div className="max-w-4xl mx-auto py-8 px-4">
       {/* Header */}
       <div className="flex items-center mb-8 gap-4">
-        <button onClick={() => router.push(`/${locale}/dashboard`)} className="text-gray-600 hover:text-gray-900 font-medium">
+        <button onClick={() => router.push(`/${locale}/dashboard`)} className="text-gray-600 hover:text-gray-900 font-medium text-sm">
           &larr; {isEs ? 'Volver' : 'Back'}
         </button>
-        <h1 className="text-3xl font-bold">{isEs ? 'Centro de Aprendizaje SYNAPSE' : 'SYNAPSE Learning Center'}</h1>
+        <h1 className="text-3xl font-bold">{isEs ? 'Centro de Aprendizaje' : 'Learning Center'}</h1>
       </div>
 
       {/* --- Struggles & Goals Box --- */}
@@ -247,13 +305,13 @@ export default function LearningCenterPage() {
             <h3 className="font-semibold text-red-700 mb-2">{isEs ? '😤 Mis Dificultades' : '😤 My Struggles'}</h3>
             <div className="flex gap-2 mb-2">
               <input value={newStruggle} onChange={e => setNewStruggle(e.target.value)} placeholder={isEs ? 'Algo con lo que estoy luchando...' : "Something I'm struggling with..."} className="flex-1 border rounded p-2 text-sm" />
-              <button onClick={() => { if (newStruggle.trim()) { setStruggles([...struggles, { type: 'struggle', text: newStruggle }]); setNewStruggle(''); }}} className="bg-red-500 text-white px-3 py-2 rounded text-sm">{isEs ? 'Agregar' : 'Add'}</button>
+              <button onClick={() => { if (newStruggle.trim()) { setStruggles([...struggles, { type: 'struggle', text: newStruggle }]); setNewStruggle(''); }}} className="bg-red-500 text-white px-3 py-2 rounded text-sm hover:bg-red-600 transition">{isEs ? 'Agregar' : 'Add'}</button>
             </div>
             <ul className="space-y-2">
               {struggles.map((s, i) => (
                 <li key={i} className="bg-red-50 border border-red-100 rounded p-2 text-sm flex justify-between items-start gap-2">
                   <span>{s.text}</span>
-                  <button onClick={() => setApplyingTo({ item: s, index: i, type: 'struggle' })} className="shrink-0 text-xs bg-blue-600 text-white px-2 py-1 rounded">{isEs ? 'Aplicar APSE' : 'Apply APSE'}</button>
+                  <button onClick={() => setApplyingTo({ item: s, index: i, type: 'struggle' })} className="shrink-0 text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition">{isEs ? 'Aplicar APSE' : 'Apply APSE'}</button>
                 </li>
               ))}
             </ul>
@@ -263,13 +321,13 @@ export default function LearningCenterPage() {
             <h3 className="font-semibold text-green-700 mb-2">{isEs ? '🎯 Mis Metas' : '🎯 My Goals'}</h3>
             <div className="flex gap-2 mb-2">
               <input value={newGoal} onChange={e => setNewGoal(e.target.value)} placeholder={isEs ? 'Algo hacia lo que estoy trabajando...' : "Something I'm working toward..."} className="flex-1 border rounded p-2 text-sm" />
-              <button onClick={() => { if (newGoal.trim()) { setGoals([...goals, { type: 'goal', text: newGoal }]); setNewGoal(''); }}} className="bg-green-600 text-white px-3 py-2 rounded text-sm">{isEs ? 'Agregar' : 'Add'}</button>
+              <button onClick={() => { if (newGoal.trim()) { setGoals([...goals, { type: 'goal', text: newGoal }]); setNewGoal(''); }}} className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition">{isEs ? 'Agregar' : 'Add'}</button>
             </div>
             <ul className="space-y-2">
               {goals.map((g, i) => (
                 <li key={i} className="bg-green-50 border border-green-100 rounded p-2 text-sm flex justify-between items-start gap-2">
                   <span>{g.text}</span>
-                  <button onClick={() => setApplyingTo({ item: g, index: i, type: 'goal' })} className="shrink-0 text-xs bg-blue-600 text-white px-2 py-1 rounded">{isEs ? 'Aplicar APSE' : 'Apply APSE'}</button>
+                  <button onClick={() => setApplyingTo({ item: g, index: i, type: 'goal' })} className="shrink-0 text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition">{isEs ? 'Aplicar APSE' : 'Apply APSE'}</button>
                 </li>
               ))}
             </ul>
@@ -288,10 +346,10 @@ export default function LearningCenterPage() {
             </select>
             <textarea value={apsePlan} onChange={e => setApsePlan(e.target.value)} rows={3} placeholder={isEs ? `¿Cómo te ayudará ${apseModule} con esto? Escribe tu plan...` : `How will ${apseModule} help you with this? Write your plan...`} className="w-full border rounded p-2 text-sm mb-2" />
             <div className="flex gap-2">
-              <button onClick={applyApseToProblem} disabled={saving || !apsePlan.trim()} className="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:bg-blue-300">
+              <button onClick={applyApseToProblem} disabled={saving || !apsePlan.trim()} className="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:bg-blue-300 hover:bg-blue-700 transition">
                 {saving ? (isEs ? 'Guardando...' : 'Saving...') : (isEs ? 'Guardar Plan en Dashboard' : 'Save Plan to Dashboard')}
               </button>
-              <button onClick={() => { setApplyingTo(null); setApsePlan(''); }} className="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm">{isEs ? 'Cancelar' : 'Cancel'}</button>
+              <button onClick={() => { setApplyingTo(null); setApsePlan(''); }} className="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm hover:bg-gray-300 transition">{isEs ? 'Cancelar' : 'Cancel'}</button>
             </div>
           </div>
         )}
@@ -308,19 +366,20 @@ export default function LearningCenterPage() {
               <div className="cursor-pointer p-6" onClick={() => setExpandedIndex(isOpen ? null : i)}>
                 <div className="flex justify-between items-center">
                   <div>
-                    <span className={`text-xs font-bold px-2 py-1 rounded mr-2 ${colors.badge}`}>Module {mod.id}</span>
-                    <h2 className="text-xl font-bold inline">{mod.title}</h2>
+                    <div className="flex items-center gap-3">
+                      <span className={`text-xs font-bold px-2 py-1 rounded ${colors.badge}`}>Module {mod.id}</span>
+                      <h2 className="text-xl font-bold">{mod.title}</h2>
+                    </div>
+                    <p className="text-gray-500 text-sm mt-1">{mod.shortDesc}</p>
                   </div>
-                  <span className="text-gray-400 text-lg">{isOpen ? '▲' : '▼'}</span>
+                  <span className="text-gray-400 font-bold text-lg">{isOpen ? '▲' : '▼'}</span>
                 </div>
-                <p className="text-gray-500 mt-1 text-sm">{mod.shortDesc}</p>
               </div>
 
               {isOpen && (
-                <div className="px-6 pb-6">
-                  {/* Lesson content */}
-                  {mod.lesson.map((section, si) => (
-                    <div key={si} className={`mb-4 p-4 rounded-lg ${colors.bg}`}>
+                <div className={`p-6 border-t ${colors.bg} space-y-6`}>
+                  {mod.lesson.map((section, sIdx) => (
+                    <div key={sIdx} className="bg-white p-4 rounded-lg shadow-sm">
                       <h3 className="font-bold text-gray-800 mb-2">{section.heading}</h3>
                       <p className="text-gray-700 text-sm whitespace-pre-line leading-relaxed">{section.body}</p>
                     </div>

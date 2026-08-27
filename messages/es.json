@@ -7,13 +7,15 @@
     "dashboard": "Panel de control",
     "learning": "Centro de Aprendizaje",
     "feedback": "Comentarios",
-    "profile": "Perfil"
+    "profile": "Perfil",
+    "logout": "Cerrar Sesión"
   },
   "Auth": {
     "login": "Iniciar Sesión",
     "signup": "Registrarse",
     "email": "Correo Electrónico",
     "password": "Contraseña",
+    "full_name": "Nombre Completo",
     "role_player": "Jugador",
     "role_parent": "Padre/Madre",
     "role_coach": "Entrenador"
@@ -27,7 +29,7 @@
     "submit": "Firmar y Continuar"
   },
   "Learning": {
-    "title": "Centro de Aprendizaje SYNAPSE",
+    "title": "Centro de Aprendizaje",
     "back": "Volver",
     "commit_button": "Comprometerse al Cambio",
     "saving": "Guardando...",
@@ -54,10 +56,10 @@
     "daily_checkin": "Revisión Diaria (TLCs)",
     "daily_checkin_desc": "Haz un seguimiento de tu sueño, nutrición y estrés para desarrollar resiliencia.",
     "start_checkin": "Iniciar Revisión",
-    "learning_center": "Centro de Aprendizaje SYNAPSE",
+    "learning_center": "Centro de Aprendizaje",
     "learning_center_desc": "Domina tu mentalidad en los deportes y en la vida.",
     "view_lessons": "Ver Lecciones",
-    "active_goals": "Mis Metas Activas SYNAPSE",
+    "active_goals": "Mis Metas Activas",
     "no_goals": "No tienes metas activas en este momento. ¡Visita el Centro de Aprendizaje para comprometerte con un cambio!",
     "complete": "Completar"
   }

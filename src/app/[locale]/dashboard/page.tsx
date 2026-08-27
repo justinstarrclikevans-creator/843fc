@@ -12,6 +12,7 @@ export default function DashboardPage() {
   const t = useTranslations('Navigation');
   const tDashboard = useTranslations('Dashboard');
   const locale = useLocale();
+  const isEs = locale === 'es';
   const router = useRouter();
   const [role, setRole] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -29,17 +30,21 @@ export default function DashboardPage() {
       const user = session.user;
       setUserId(user.id);
 
-      const { data: profile } = await supabase
+      const { data: profile, error: profError } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
 
+      if (profError) {
+        console.error("Profile fetch error:", profError);
+      }
+
       if (profile) {
         setRole(profile.role);
         
         // Coaches don't need waivers, skip onboarding check for them
-        if (profile.role !== 'coach' && profile.role !== 'admin') {
+        if (profile.role !== 'coach' && profile.role !== 'admin' && profile.role !== 'pending_coach') {
           // Check if signed waivers
           const { data: agreements } = await supabase
             .from('agreements')
@@ -56,12 +61,13 @@ export default function DashboardPage() {
         }
 
         if (profile.role === 'player') {
-          const { data: activeGoals } = await supabase
+          const { data: activeGoals, error: goalsError } = await supabase
             .from('synapse_exercises')
             .select('*')
             .eq('player_id', user.id)
             .eq('status', 'active')
             .order('created_at', { ascending: false });
+          if (goalsError) console.error("Active goals fetch error:", goalsError);
           if (activeGoals) setGoals(activeGoals);
         }
       }
@@ -73,14 +79,19 @@ export default function DashboardPage() {
   }, [router, locale]);
 
   const markGoalCompleted = async (goalId: string) => {
-    await supabase.from('synapse_exercises').update({ status: 'completed' }).eq('id', goalId);
+    const { error } = await supabase.from('synapse_exercises').update({ status: 'completed' }).eq('id', goalId);
+    if (error) {
+      console.error("Error marking goal completed:", error);
+      alert(isEs ? "Error al actualizar la meta." : "Error updating goal.");
+      return;
+    }
     setGoals(goals.filter(g => g.id !== goalId));
   };
 
-  if (loading) return <div className="p-8 text-center">Loading...</div>;
+  if (loading) return <div className="p-8 text-center text-gray-500">{isEs ? 'Cargando...' : 'Loading...'}</div>;
 
   return (
-    <div className="p-4 sm:p-8">
+    <div className="p-4 sm:p-8 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">{t('dashboard')}</h1>
         <button 
@@ -88,9 +99,9 @@ export default function DashboardPage() {
             await supabase.auth.signOut();
             router.push(`/${locale}`);
           }}
-          className="text-sm bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300"
+          className="text-sm bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300 font-medium transition"
         >
-          Log Out
+          {t('logout')}
         </button>
       </div>
       
@@ -99,13 +110,13 @@ export default function DashboardPage() {
           <div className="grid gap-6 md:grid-cols-2">
             <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
               <h2 className="text-xl font-semibold mb-4">{tDashboard('daily_checkin')}</h2>
-              <p className="text-gray-600 mb-4">{tDashboard('daily_checkin_desc')}</p>
-              <button onClick={() => router.push(`/${locale}/checkin`)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">{tDashboard('start_checkin')}</button>
+              <p className="text-gray-600 mb-4 text-sm">{tDashboard('daily_checkin_desc')}</p>
+              <button onClick={() => router.push(`/${locale}/checkin`)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium transition">{tDashboard('start_checkin')}</button>
             </div>
             <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
               <h2 className="text-xl font-semibold mb-4">{tDashboard('learning_center')}</h2>
-              <p className="text-gray-600 mb-4">{tDashboard('learning_center_desc')}</p>
-              <button onClick={() => router.push(`/${locale}/learning`)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">{tDashboard('view_lessons')}</button>
+              <p className="text-gray-600 mb-4 text-sm">{tDashboard('learning_center_desc')}</p>
+              <button onClick={() => router.push(`/${locale}/learning`)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm font-medium transition">{tDashboard('view_lessons')}</button>
             </div>
           </div>
 
@@ -113,7 +124,7 @@ export default function DashboardPage() {
           <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
             <h2 className="text-xl font-semibold mb-4">{tDashboard('active_goals')}</h2>
             {goals.length === 0 ? (
-              <p className="text-gray-500 italic">{tDashboard('no_goals')}</p>
+              <p className="text-gray-500 italic text-sm">{tDashboard('no_goals')}</p>
             ) : (
               <div className="space-y-4">
                 {goals.map(goal => (
@@ -123,11 +134,11 @@ export default function DashboardPage() {
                         <span className="inline-block bg-blue-200 text-blue-800 text-xs font-bold px-2 py-1 rounded mb-2">
                           Module {goal.module}
                         </span>
-                        <p className="text-gray-800 whitespace-pre-wrap">{goal.response}</p>
+                        <p className="text-gray-800 whitespace-pre-wrap text-sm">{goal.response}</p>
                       </div>
                       <button 
                         onClick={() => markGoalCompleted(goal.id)}
-                        className="shrink-0 bg-green-500 text-white px-3 py-1 text-sm rounded hover:bg-green-600"
+                        className="shrink-0 bg-green-500 text-white px-3 py-1 text-sm rounded hover:bg-green-600 transition"
                       >
                         ✓ {tDashboard('complete')}
                       </button>
@@ -152,27 +163,35 @@ export default function DashboardPage() {
 
       {role === 'pending_coach' && (
         <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200 mt-6">
-          <h2 className="text-xl font-semibold text-yellow-700 mb-2">Awaiting Admin Approval</h2>
-          <p className="text-yellow-600">
-            Your coach account has been created, but it requires approval from a Team Administrator before you can access the dashboard.
+          <h2 className="text-xl font-semibold text-yellow-700 mb-2">
+            {isEs ? 'Esperando Aprobación de Administrador' : 'Awaiting Admin Approval'}
+          </h2>
+          <p className="text-yellow-600 text-sm">
+            {isEs 
+              ? 'Tu cuenta de entrenador ha sido creada, pero requiere la aprobación de un Administrador del Equipo antes de poder acceder al panel de control.' 
+              : 'Your coach account has been created, but it requires approval from a Team Administrator before you can access the dashboard.'}
           </p>
         </div>
       )}
 
       {role === null && !loading && (
         <div className="bg-red-50 p-6 rounded-lg border border-red-200 mt-6">
-          <h2 className="text-xl font-semibold text-red-700 mb-2">Profile Missing or Not Found</h2>
-          <p className="text-red-600 mb-4">
-            We couldn't load your role (Player, Parent, Coach). This usually happens if your account was created during a database error.
+          <h2 className="text-xl font-semibold text-red-700 mb-2">
+            {isEs ? 'Perfil No Encontrado' : 'Profile Missing or Not Found'}
+          </h2>
+          <p className="text-red-600 mb-4 text-sm">
+            {isEs
+              ? 'No pudimos cargar tu rol (Jugador, Padre, Entrenador). Esto suele ocurrir si la cuenta fue creada durante un error de base de datos.'
+              : "We couldn't load your role (Player, Parent, Coach). This usually happens if your account was created during a database error."}
           </p>
           <button 
             onClick={async () => {
               await supabase.auth.signOut();
               router.push(`/${locale}/signup`);
             }}
-            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-medium transition"
           >
-            Log Out & Sign Up Again
+            {isEs ? 'Cerrar Sesión y Registrarse Nuevamente' : 'Log Out & Sign Up Again'}
           </button>
         </div>
       )}

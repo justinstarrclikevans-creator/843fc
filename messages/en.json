@@ -7,13 +7,15 @@
     "dashboard": "Dashboard",
     "learning": "Learning Center",
     "feedback": "Feedback",
-    "profile": "Profile"
+    "profile": "Profile",
+    "logout": "Log Out"
   },
   "Auth": {
     "login": "Log In",
     "signup": "Sign Up",
     "email": "Email",
     "password": "Password",
+    "full_name": "Full Name",
     "role_player": "Player",
     "role_parent": "Parent",
     "role_coach": "Coach"
@@ -27,7 +29,7 @@
     "submit": "Sign & Continue"
   },
   "Learning": {
-    "title": "SYNAPSE Learning Center",
+    "title": "Learning Center",
     "back": "Back",
     "commit_button": "Commit to Change",
     "saving": "Saving...",
@@ -54,10 +56,10 @@
     "daily_checkin": "Daily Check-in (TLCs)",
     "daily_checkin_desc": "Track your sleep, nutrition, and stress to build your neuro-resilience.",
     "start_checkin": "Start Check-in",
-    "learning_center": "SYNAPSE Learning Center",
+    "learning_center": "Learning Center",
     "learning_center_desc": "Master your mentality in sports and in life.",
     "view_lessons": "View Lessons",
-    "active_goals": "My Active SYNAPSE Goals",
+    "active_goals": "My Active Goals",
     "no_goals": "You don't have any active goals right now. Visit the Learning Center to commit to a change!",
     "complete": "Complete"
   }
