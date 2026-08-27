@@ -25,5 +25,40 @@
     "sign_here": "Type your full name to sign",
     "full_name": "Full Name",
     "submit": "Sign & Continue"
+  },
+  "Learning": {
+    "title": "SYNAPSE Learning Center",
+    "back": "Back",
+    "commit_button": "Commit to Change",
+    "saving": "Saving...",
+    "success": "Goal committed! Check your Dashboard to track it.",
+    "placeholder": "Type your commitment here...",
+    "a_title": "A - Activate the Inner Why",
+    "a_desc": "Finding the true motive, necessity, and enjoyment in everything you do.",
+    "a_content": "Discover your intrinsic motivation. Why do you push yourself in school, relationships, or sports? Connect with your true joy to build resilience in life.",
+    "a_prompt": "What is the true motivation behind your daily efforts? Set a goal to tap into this 'why' when facing a challenge this week.",
+    "p_title": "P - Pictures",
+    "p_desc": "Connecting past coping skills to present strengths.",
+    "p_content": "Visualize the challenges you've overcome in life and map those coping skills directly into your present-day strengths.",
+    "p_prompt": "Identify a past coping skill that helped you through a tough time. How will you use that skill in your life today?",
+    "s_title": "S - Strategic Roadmapping (Splash)",
+    "s_desc": "Mapping the ripple effects of your behavior changes.",
+    "s_content": "Every action creates a splash. Map out how your positive behaviors ripple through your family, friends, and team.",
+    "s_prompt": "What is one positive behavior you plan to execute this week, and who in your life will feel the ripple effect?",
+    "e_title": "E - Engineering",
+    "e_desc": "Building TLCs: Sleep, Nutrition, Stress Management.",
+    "e_content": "You are the engineer of your body and mind. Build a strong foundation using Therapeutic Lifestyle Changes (TLCs).",
+    "e_prompt": "Which Lifestyle Change (Sleep, Nutrition, Hydration, Stress) are you committing to improve this week, and how?"
+  },
+  "Dashboard": {
+    "daily_checkin": "Daily Check-in (TLCs)",
+    "daily_checkin_desc": "Track your sleep, nutrition, and stress to build your neuro-resilience.",
+    "start_checkin": "Start Check-in",
+    "learning_center": "SYNAPSE Learning Center",
+    "learning_center_desc": "Master your mentality in sports and in life.",
+    "view_lessons": "View Lessons",
+    "active_goals": "My Active SYNAPSE Goals",
+    "no_goals": "You don't have any active goals right now. Visit the Learning Center to commit to a change!",
+    "complete": "Complete"
   }
 }

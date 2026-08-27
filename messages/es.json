@@ -20,10 +20,45 @@
   },
   "Onboarding": {
     "title": "Bienvenido a 843FC",
-    "waiver_title": "Exención de Responsabilidad",
+    "waiver_title": "Renuncia de Responsabilidad",
     "contract_title": "Contrato de Comportamiento",
     "sign_here": "Escriba su nombre completo para firmar",
     "full_name": "Nombre Completo",
     "submit": "Firmar y Continuar"
+  },
+  "Learning": {
+    "title": "Centro de Aprendizaje SYNAPSE",
+    "back": "Volver",
+    "commit_button": "Comprometerse al Cambio",
+    "saving": "Guardando...",
+    "success": "¡Meta guardada! Revisa tu Panel para seguirla.",
+    "placeholder": "Escribe tu compromiso aquí...",
+    "a_title": "A - Activar el Porqué Interior",
+    "a_desc": "Encontrar el verdadero motivo, necesidad y disfrute en todo lo que haces.",
+    "a_content": "Descubre tu motivación intrínseca. ¿Por qué te esfuerzas en la escuela, en las relaciones o en los deportes? Conecta con tu verdadera alegría para desarrollar resiliencia en la vida.",
+    "a_prompt": "¿Cuál es la verdadera motivación detrás de tus esfuerzos diarios? Fija una meta para aprovechar este 'porqué' al enfrentar un desafío esta semana.",
+    "p_title": "P - Imágenes (Pictures)",
+    "p_desc": "Conectando habilidades de afrontamiento pasadas con fortalezas presentes.",
+    "p_content": "Visualiza los desafíos que has superado en la vida y mapea esas habilidades de afrontamiento directamente en tus fortalezas actuales.",
+    "p_prompt": "Identifica una habilidad de afrontamiento pasada que te ayudó en un momento difícil. ¿Cómo usarás esa habilidad en tu vida hoy?",
+    "s_title": "S - Hoja de Ruta Estratégica (Splash)",
+    "s_desc": "Mapeando los efectos dominó de tus cambios de comportamiento.",
+    "s_content": "Cada acción crea un efecto dominó. Mapea cómo tus comportamientos positivos impactan a tu familia, amigos y equipo.",
+    "s_prompt": "¿Cuál es un comportamiento positivo que planeas ejecutar esta semana, y quién en tu vida sentirá el efecto dominó?",
+    "e_title": "E - Ingeniería (Engineering)",
+    "e_desc": "Construyendo TLCs: Sueño, Nutrición, Manejo del Estrés.",
+    "e_content": "Tú eres el ingeniero de tu cuerpo y mente. Construye una base sólida utilizando Cambios de Estilo de Vida Terapéuticos (TLCs).",
+    "e_prompt": "¿Qué Cambio de Estilo de Vida (Sueño, Nutrición, Hidratación, Estrés) te comprometes a mejorar esta semana, y cómo?"
+  },
+  "Dashboard": {
+    "daily_checkin": "Revisión Diaria (TLCs)",
+    "daily_checkin_desc": "Haz un seguimiento de tu sueño, nutrición y estrés para desarrollar resiliencia.",
+    "start_checkin": "Iniciar Revisión",
+    "learning_center": "Centro de Aprendizaje SYNAPSE",
+    "learning_center_desc": "Domina tu mentalidad en los deportes y en la vida.",
+    "view_lessons": "Ver Lecciones",
+    "active_goals": "Mis Metas Activas SYNAPSE",
+    "no_goals": "No tienes metas activas en este momento. ¡Visita el Centro de Aprendizaje para comprometerte con un cambio!",
+    "complete": "Completar"
   }
 }

@@ -1,12 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function LearningCenterPage() {
   const router = useRouter();
   const locale = useLocale();
+  const t = useTranslations('Learning');
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
   const [response, setResponse] = useState('');
   const [saving, setSaving] = useState(false);
@@ -23,31 +24,31 @@ export default function LearningCenterPage() {
   const modules = [
     { 
       id: 'A', 
-      title: 'A - Activate the Inner Why', 
-      desc: 'Finding the true motive, aptitude, necessity, and enjoyment.', 
-      content: 'Discover your intrinsic motivation. Why do you play? Connect with the true joy of the sport to build resilience.',
-      prompt: 'What is the true motivation behind why you play? Set a goal to tap into this "why" during practice this week.'
+      title: t('a_title'), 
+      desc: t('a_desc'), 
+      content: t('a_content'),
+      prompt: t('a_prompt')
     },
     { 
       id: 'P', 
-      title: 'P - Pictures', 
-      desc: 'Connecting past coping skills to present strengths.', 
-      content: 'Visualize your past challenges and map those coping skills directly into your present-day athletic strengths.',
-      prompt: 'Identify a past coping skill that helped you through a tough time. How will you use that skill on the field today?'
+      title: t('p_title'), 
+      desc: t('p_desc'), 
+      content: t('p_content'),
+      prompt: t('p_prompt')
     },
     { 
       id: 'S', 
-      title: 'S - Strategic Roadmapping (Splash)', 
-      desc: 'Mapping the ripple effects of your behavior changes.', 
-      content: 'Understand that every action you take creates a splash. Map out how your positive behaviors ripple through the team.',
-      prompt: 'What is one positive behavior you plan to execute this week, and who will feel the ripple effect of it?'
+      title: t('s_title'), 
+      desc: t('s_desc'), 
+      content: t('s_content'),
+      prompt: t('s_prompt')
     },
     { 
       id: 'E', 
-      title: 'E - Engineering', 
-      desc: 'Building TLCs: Sleep, Nutrition, Stress Management.', 
-      content: 'You are the engineer of your body. Build a strong foundation using Therapeutic Lifestyle Changes (TLCs).',
-      prompt: 'Which Therapeutic Lifestyle Change (Sleep, Nutrition, Hydration, Stress) are you committing to improve this week, and how?'
+      title: t('e_title'), 
+      desc: t('e_desc'), 
+      content: t('e_content'),
+      prompt: t('e_prompt')
     },
   ];
 
@@ -62,7 +63,7 @@ export default function LearningCenterPage() {
     });
     setSaving(false);
     setResponse('');
-    alert('Goal committed! Check your Dashboard to track it.');
+    alert(t('success'));
     setExpandedIndex(null);
   };
 
@@ -73,9 +74,9 @@ export default function LearningCenterPage() {
           onClick={() => router.push(`/${locale}/dashboard`)}
           className="text-gray-600 hover:text-gray-900 font-medium"
         >
-          &larr; Back
+          &larr; {t('back')}
         </button>
-        <h1 className="text-3xl font-bold">SYNAPSE Learning Center</h1>
+        <h1 className="text-3xl font-bold">{t('title')}</h1>
       </div>
       <div className="grid gap-6 md:grid-cols-2">
         {modules.map((mod, i) => (
@@ -97,14 +98,14 @@ export default function LearningCenterPage() {
                     onChange={(e) => setResponse(e.target.value)}
                     className="w-full border border-gray-300 rounded p-2 text-sm focus:ring-blue-500 focus:border-blue-500"
                     rows={3}
-                    placeholder="Type your commitment here..."
+                    placeholder={t('placeholder')}
                   />
                   <button 
                     onClick={() => handleCommit(mod)}
                     disabled={saving || !response.trim()}
                     className="mt-2 bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:bg-blue-300"
                   >
-                    {saving ? 'Saving...' : 'Commit to Change'}
+                    {saving ? t('saving') : t('commit_button')}
                   </button>
                 </div>
               </div>

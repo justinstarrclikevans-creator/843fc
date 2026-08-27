@@ -10,6 +10,7 @@ import FeedbackThread from '@/components/FeedbackThread';
 
 export default function DashboardPage() {
   const t = useTranslations('Navigation');
+  const tDashboard = useTranslations('Dashboard');
   const locale = useLocale();
   const router = useRouter();
   const [role, setRole] = useState<string | null>(null);
@@ -28,20 +29,6 @@ export default function DashboardPage() {
       const user = session.user;
       setUserId(user.id);
 
-      // Check if signed waivers
-      const { data: agreements } = await supabase
-        .from('agreements')
-        .select('agreement_type')
-        .eq('user_id', user.id);
-        
-      const hasWaiver = agreements?.some(a => a.agreement_type === 'liability_waiver');
-      const hasContract = agreements?.some(a => a.agreement_type === 'behavior_contract');
-      
-      if (!hasWaiver || !hasContract) {
-        router.push(`/${locale}/onboarding`);
-        return;
-      }
-
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -51,6 +38,23 @@ export default function DashboardPage() {
       if (profile) {
         setRole(profile.role);
         
+        // Coaches don't need waivers, skip onboarding check for them
+        if (profile.role !== 'coach' && profile.role !== 'admin') {
+          // Check if signed waivers
+          const { data: agreements } = await supabase
+            .from('agreements')
+            .select('agreement_type')
+            .eq('user_id', user.id);
+            
+          const hasWaiver = agreements?.some(a => a.agreement_type === 'liability_waiver');
+          const hasContract = agreements?.some(a => a.agreement_type === 'behavior_contract');
+          
+          if (!hasWaiver || !hasContract) {
+            router.push(`/${locale}/onboarding`);
+            return;
+          }
+        }
+
         if (profile.role === 'player') {
           const { data: activeGoals } = await supabase
             .from('synapse_exercises')
@@ -94,22 +98,22 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
-              <h2 className="text-xl font-semibold mb-4">Daily Check-in (TLCs)</h2>
-              <p className="text-gray-600 mb-4">Track your sleep, nutrition, and stress to build your neuro-resilience.</p>
-              <button onClick={() => router.push(`/${locale}/checkin`)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Start Check-in</button>
+              <h2 className="text-xl font-semibold mb-4">{tDashboard('daily_checkin')}</h2>
+              <p className="text-gray-600 mb-4">{tDashboard('daily_checkin_desc')}</p>
+              <button onClick={() => router.push(`/${locale}/checkin`)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">{tDashboard('start_checkin')}</button>
             </div>
             <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
-              <h2 className="text-xl font-semibold mb-4">SYNAPSE Learning Center</h2>
-              <p className="text-gray-600 mb-4">Master your mentality on and off the pitch.</p>
-              <button onClick={() => router.push(`/${locale}/learning`)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">View Lessons</button>
+              <h2 className="text-xl font-semibold mb-4">{tDashboard('learning_center')}</h2>
+              <p className="text-gray-600 mb-4">{tDashboard('learning_center_desc')}</p>
+              <button onClick={() => router.push(`/${locale}/learning`)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">{tDashboard('view_lessons')}</button>
             </div>
           </div>
 
           {/* Active Goals Section */}
           <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
-            <h2 className="text-xl font-semibold mb-4">My Active SYNAPSE Goals</h2>
+            <h2 className="text-xl font-semibold mb-4">{tDashboard('active_goals')}</h2>
             {goals.length === 0 ? (
-              <p className="text-gray-500 italic">You don't have any active goals right now. Visit the Learning Center to commit to a change!</p>
+              <p className="text-gray-500 italic">{tDashboard('no_goals')}</p>
             ) : (
               <div className="space-y-4">
                 {goals.map(goal => (
@@ -125,7 +129,7 @@ export default function DashboardPage() {
                         onClick={() => markGoalCompleted(goal.id)}
                         className="shrink-0 bg-green-500 text-white px-3 py-1 text-sm rounded hover:bg-green-600"
                       >
-                        ✓ Complete
+                        ✓ {tDashboard('complete')}
                       </button>
                     </div>
                   </div>
@@ -144,6 +148,15 @@ export default function DashboardPage() {
 
       {role === 'coach' && (
         <CoachView />
+      )}
+
+      {role === 'pending_coach' && (
+        <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200 mt-6">
+          <h2 className="text-xl font-semibold text-yellow-700 mb-2">Awaiting Admin Approval</h2>
+          <p className="text-yellow-600">
+            Your coach account has been created, but it requires approval from a Team Administrator before you can access the dashboard.
+          </p>
+        </div>
       )}
 
       {role === null && !loading && (

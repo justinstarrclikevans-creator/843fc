@@ -35,10 +35,11 @@ export default function SignupPage() {
 
     // 2. Insert into profiles table
     if (authData.user) {
+      const assignedRole = role === 'coach' ? 'pending_coach' : role;
       const { error: profileError } = await supabase
         .from('profiles')
         .insert([
-          { id: authData.user.id, email, full_name: fullName, role }
+          { id: authData.user.id, email, full_name: fullName, role: assignedRole }
         ]);
         
       if (profileError) {
