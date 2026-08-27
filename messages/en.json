@@ -1,0 +1,29 @@
+{
+  "Index": {
+    "title": "Welcome to SYNAPSE",
+    "subtitle": "Building stronger mentality and integrity on and off the pitch."
+  },
+  "Navigation": {
+    "dashboard": "Dashboard",
+    "learning": "Learning Center",
+    "feedback": "Feedback",
+    "profile": "Profile"
+  },
+  "Auth": {
+    "login": "Log In",
+    "signup": "Sign Up",
+    "email": "Email",
+    "password": "Password",
+    "role_player": "Player",
+    "role_parent": "Parent",
+    "role_coach": "Coach"
+  },
+  "Onboarding": {
+    "title": "Welcome to 843FC",
+    "waiver_title": "Liability Waiver & Release",
+    "contract_title": "Behavioral Contract",
+    "sign_here": "Type your full name to sign",
+    "full_name": "Full Name",
+    "submit": "Sign & Continue"
+  }
+}

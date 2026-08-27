@@ -1,0 +1,29 @@
+{
+  "Index": {
+    "title": "Bienvenido a SYNAPSE",
+    "subtitle": "Construyendo una mentalidad y una integridad más fuertes dentro y fuera de la cancha."
+  },
+  "Navigation": {
+    "dashboard": "Panel de control",
+    "learning": "Centro de Aprendizaje",
+    "feedback": "Comentarios",
+    "profile": "Perfil"
+  },
+  "Auth": {
+    "login": "Iniciar Sesión",
+    "signup": "Registrarse",
+    "email": "Correo Electrónico",
+    "password": "Contraseña",
+    "role_player": "Jugador",
+    "role_parent": "Padre/Madre",
+    "role_coach": "Entrenador"
+  },
+  "Onboarding": {
+    "title": "Bienvenido a 843FC",
+    "waiver_title": "Exención de Responsabilidad",
+    "contract_title": "Contrato de Comportamiento",
+    "sign_here": "Escriba su nombre completo para firmar",
+    "full_name": "Nombre Completo",
+    "submit": "Firmar y Continuar"
+  }
+}
