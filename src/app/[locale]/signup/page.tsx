@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
 export default function SignupPage() {
   const t = useTranslations('Auth');
+  const locale = useLocale();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -47,7 +48,7 @@ export default function SignupPage() {
       }
     }
 
-    router.push('/dashboard');
+    router.push(`/${locale}/dashboard`);
   };
 
   return (

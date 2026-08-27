@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
 export default function OnboardingPage() {
   const t = useTranslations('Onboarding'); // I'll add these translations next
+  const locale = useLocale();
   const router = useRouter();
   
   const [waiverName, setWaiverName] = useState('');
@@ -40,7 +41,7 @@ export default function OnboardingPage() {
       });
       if (contractError) throw contractError;
 
-      router.push('/dashboard');
+      router.push(`/${locale}/dashboard`);
     } catch (err: any) {
       setError(err.message);
       setLoading(false);

@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useLocale } from 'next-intl';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 
 export default function CheckinPage() {
+  const locale = useLocale();
   const router = useRouter();
   const [sleepHours, setSleepHours] = useState(8);
   const [sleepQuality, setSleepQuality] = useState('good');
@@ -33,7 +35,7 @@ export default function CheckinPage() {
       practice_performance: practicePerformance
     });
 
-    router.push('/dashboard');
+    router.push(`/${locale}/dashboard`);
   };
 
   return (
