@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { supabase } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
 import CoachView from './CoachView';
@@ -10,6 +10,7 @@ import FeedbackThread from '@/components/FeedbackThread';
 
 export default function DashboardPage() {
   const t = useTranslations('Navigation');
+  const locale = useLocale();
   const router = useRouter();
   const [role, setRole] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -19,7 +20,7 @@ export default function DashboardPage() {
     async function fetchUser() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        router.push('/login');
+        router.push(`/${locale}/login`);
         return;
       }
       setUserId(user.id);
@@ -34,7 +35,7 @@ export default function DashboardPage() {
       const hasContract = agreements?.some(a => a.agreement_type === 'behavior_contract');
       
       if (!hasWaiver || !hasContract) {
-        router.push('/onboarding');
+        router.push(`/${locale}/onboarding`);
         return;
       }
 
@@ -65,12 +66,12 @@ export default function DashboardPage() {
             <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
               <h2 className="text-xl font-semibold mb-4">Daily Check-in (TLCs)</h2>
               <p className="text-gray-600 mb-4">Track your sleep, nutrition, and stress to build your neuro-resilience.</p>
-              <button onClick={() => router.push('/checkin')} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Start Check-in</button>
+              <button onClick={() => router.push(`/${locale}/checkin`)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Start Check-in</button>
             </div>
             <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
               <h2 className="text-xl font-semibold mb-4">SYNAPSE Learning Center</h2>
               <p className="text-gray-600 mb-4">Master your mentality on and off the pitch.</p>
-              <button onClick={() => router.push('/learning')} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">View Lessons</button>
+              <button onClick={() => router.push(`/${locale}/learning`)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">View Lessons</button>
             </div>
           </div>
           {userId && <FeedbackThread playerId={userId} />}
