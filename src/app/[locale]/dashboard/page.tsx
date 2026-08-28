@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import CoachView from './CoachView';
 import ParentView from './ParentView';
 import FeedbackThread from '@/components/FeedbackThread';
+import { formatCleanGoal, GOAL_STATUSES, GoalStatus } from '@/lib/goalUtils';
 
 export default function DashboardPage() {
   const t = useTranslations('Navigation');
@@ -18,6 +19,8 @@ export default function DashboardPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [goals, setGoals] = useState<any[]>([]);
+  const [goalFilter, setGoalFilter] = useState<'all' | GoalStatus>('all');
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchUser() {
@@ -61,14 +64,7 @@ export default function DashboardPage() {
         }
 
         if (profile.role === 'player') {
-          const { data: activeGoals, error: goalsError } = await supabase
-            .from('synapse_exercises')
-            .select('*')
-            .eq('player_id', user.id)
-            .eq('status', 'active')
-            .order('created_at', { ascending: false });
-          if (goalsError) console.error("Active goals fetch error:", goalsError);
-          if (activeGoals) setGoals(activeGoals);
+          fetchPlayerGoals(user.id);
         }
       }
       
@@ -78,15 +74,62 @@ export default function DashboardPage() {
     fetchUser();
   }, [router, locale]);
 
-  const markGoalCompleted = async (goalId: string) => {
-    const { error } = await supabase.from('synapse_exercises').update({ status: 'completed' }).eq('id', goalId);
+  async function fetchPlayerGoals(playerId: string) {
+    const { data: playerGoals, error: goalsError } = await supabase
+      .from('synapse_exercises')
+      .select('*')
+      .eq('player_id', playerId)
+      .order('created_at', { ascending: false });
+    if (goalsError) console.error("Active goals fetch error:", goalsError);
+    if (playerGoals) setGoals(playerGoals);
+  }
+
+  const updateGoalStatus = async (goalId: string, newStatus: GoalStatus) => {
+    setActionLoading(goalId);
+    const { error } = await supabase
+      .from('synapse_exercises')
+      .update({ status: newStatus })
+      .eq('id', goalId);
+      
+    setActionLoading(null);
     if (error) {
-      console.error("Error marking goal completed:", error);
-      alert(isEs ? "Error al actualizar la meta." : "Error updating goal.");
+      console.error("Error updating goal status:", error);
+      alert(isEs ? "Error al actualizar la meta: " + error.message : "Error updating goal: " + error.message);
       return;
     }
-    setGoals(goals.filter(g => g.id !== goalId));
+    setGoals(prev => prev.map(g => g.id === goalId ? { ...g, status: newStatus } : g));
   };
+
+  const deleteGoal = async (goalId: string) => {
+    const confirmMsg = isEs 
+      ? "¿Estás seguro de que deseas eliminar esta meta?" 
+      : "Are you sure you want to remove this goal?";
+    if (!window.confirm(confirmMsg)) return;
+
+    setActionLoading(goalId);
+    const { error } = await supabase
+      .from('synapse_exercises')
+      .delete()
+      .eq('id', goalId);
+
+    setActionLoading(null);
+    if (error) {
+      console.error("Error deleting goal:", error);
+      alert(isEs ? "Error al eliminar la meta: " + error.message : "Error deleting goal: " + error.message);
+      return;
+    }
+    setGoals(prev => prev.filter(g => g.id !== goalId));
+  };
+
+  const filteredGoals = goals.filter(g => {
+    const s = (g.status || 'active') as GoalStatus;
+    if (goalFilter === 'all') return true;
+    return s === goalFilter;
+  });
+
+  const activeCount = goals.filter(g => (g.status || 'active') === 'active').length;
+  const completedCount = goals.filter(g => g.status === 'completed').length;
+  const gaveUpCount = goals.filter(g => g.status === 'gave_up').length;
 
   if (loading) return <div className="p-8 text-center text-gray-500">{isEs ? 'Cargando...' : 'Loading...'}</div>;
 
@@ -109,42 +152,148 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
-              <h2 className="text-xl font-semibold mb-4">{tDashboard('daily_checkin')}</h2>
+              <h2 className="text-xl font-semibold mb-2">{tDashboard('daily_checkin')}</h2>
               <p className="text-gray-600 mb-4 text-sm">{tDashboard('daily_checkin_desc')}</p>
               <button onClick={() => router.push(`/${locale}/checkin`)} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm font-medium transition">{tDashboard('start_checkin')}</button>
             </div>
             <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
-              <h2 className="text-xl font-semibold mb-4">{tDashboard('learning_center')}</h2>
+              <h2 className="text-xl font-semibold mb-2">{tDashboard('learning_center')}</h2>
               <p className="text-gray-600 mb-4 text-sm">{tDashboard('learning_center_desc')}</p>
               <button onClick={() => router.push(`/${locale}/learning`)} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 text-sm font-medium transition">{tDashboard('view_lessons')}</button>
             </div>
           </div>
 
-          {/* Active Goals Section */}
+          {/* Goal Tracker Section */}
           <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
-            <h2 className="text-xl font-semibold mb-4">{tDashboard('active_goals')}</h2>
-            {goals.length === 0 ? (
-              <p className="text-gray-500 italic text-sm">{tDashboard('no_goals')}</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-xl font-bold">{isEs ? '🎯 Mis Metas y Progreso' : '🎯 My Goals & Tracker'}</h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  {isEs ? 'Haz un seguimiento del estado de cada meta que has establecido.' : 'Track, update, and manage your commitments.'}
+                </p>
+              </div>
+
+              {/* Status Tabs Filter */}
+              <div className="flex flex-wrap gap-1.5 bg-gray-100 p-1 rounded-lg text-xs font-semibold">
+                <button
+                  onClick={() => setGoalFilter('all')}
+                  className={`px-3 py-1.5 rounded-md transition ${goalFilter === 'all' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+                >
+                  {isEs ? 'Todas' : 'All'} ({goals.length})
+                </button>
+                <button
+                  onClick={() => setGoalFilter('active')}
+                  className={`px-3 py-1.5 rounded-md transition flex items-center gap-1.5 ${goalFilter === 'active' ? 'bg-amber-500 text-white shadow-sm' : 'text-amber-700 hover:bg-amber-100'}`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-300"></span>
+                  {isEs ? 'En progreso' : 'Working on it'} ({activeCount})
+                </button>
+                <button
+                  onClick={() => setGoalFilter('completed')}
+                  className={`px-3 py-1.5 rounded-md transition flex items-center gap-1.5 ${goalFilter === 'completed' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-100'}`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-300"></span>
+                  {isEs ? 'Completadas' : 'Completed'} ({completedCount})
+                </button>
+                <button
+                  onClick={() => setGoalFilter('gave_up')}
+                  className={`px-3 py-1.5 rounded-md transition flex items-center gap-1.5 ${goalFilter === 'gave_up' ? 'bg-slate-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'}`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-slate-300"></span>
+                  {isEs ? 'Descartadas' : 'Gave up'} ({gaveUpCount})
+                </button>
+              </div>
+            </div>
+
+            {filteredGoals.length === 0 ? (
+              <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                <p className="text-gray-500 italic text-sm">
+                  {goals.length === 0 
+                    ? (isEs ? 'No tienes metas registradas aún. ¡Visita el Centro de Aprendizaje para crear una!' : 'You don\'t have any goals yet. Visit the Learning Center to create one!')
+                    : (isEs ? 'No hay metas con este estado.' : 'No goals found in this category.')}
+                </p>
+                {goals.length === 0 && (
+                  <button 
+                    onClick={() => router.push(`/${locale}/learning`)}
+                    className="mt-3 text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 font-medium"
+                  >
+                    {isEs ? 'Ir al Centro de Aprendizaje' : 'Go to Learning Center'}
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="space-y-4">
-                {goals.map(goal => (
-                  <div key={goal.id} className="bg-blue-50 border border-blue-100 p-4 rounded-md">
-                    <div className="flex justify-between items-start gap-4">
-                      <div>
-                        <span className="inline-block bg-blue-200 text-blue-800 text-xs font-bold px-2 py-1 rounded mb-2">
-                          Module {goal.module}
-                        </span>
-                        <p className="text-gray-800 whitespace-pre-wrap text-sm">{goal.response}</p>
+                {filteredGoals.map(goal => {
+                  const statusKey = (goal.status || 'active') as GoalStatus;
+                  const statusConfig = GOAL_STATUSES[statusKey] || GOAL_STATUSES.active;
+                  const clean = formatCleanGoal(goal.response, isEs);
+                  const isBusy = actionLoading === goal.id;
+
+                  return (
+                    <div key={goal.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:border-gray-300 transition">
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full border ${statusConfig.badgeClass}`}>
+                            <span className={`w-2 h-2 rounded-full ${statusConfig.dotColor}`}></span>
+                            {isEs ? statusConfig.labelEs : statusConfig.labelEn}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {new Date(goal.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        {/* Status tracker controls & delete */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {statusKey !== 'active' && (
+                            <button
+                              onClick={() => updateGoalStatus(goal.id, 'active')}
+                              disabled={isBusy}
+                              className="text-xs bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 px-2.5 py-1 rounded font-medium transition disabled:opacity-50"
+                            >
+                              🟡 {isEs ? 'En progreso' : 'Still working on it'}
+                            </button>
+                          )}
+                          {statusKey !== 'completed' && (
+                            <button
+                              onClick={() => updateGoalStatus(goal.id, 'completed')}
+                              disabled={isBusy}
+                              className="text-xs bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded font-medium transition disabled:opacity-50"
+                            >
+                              ✓ {isEs ? 'Completada' : 'Complete goal'}
+                            </button>
+                          )}
+                          {statusKey !== 'gave_up' && (
+                            <button
+                              onClick={() => updateGoalStatus(goal.id, 'gave_up')}
+                              disabled={isBusy}
+                              className="text-xs bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 px-2.5 py-1 rounded font-medium transition disabled:opacity-50"
+                            >
+                              ✕ {isEs ? 'Descartar' : 'Gave up'}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => deleteGoal(goal.id)}
+                            disabled={isBusy}
+                            title={isEs ? 'Eliminar meta' : 'Delete goal'}
+                            className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition ml-1"
+                          >
+                            🗑️
+                          </button>
+                        </div>
                       </div>
-                      <button 
-                        onClick={() => markGoalCompleted(goal.id)}
-                        className="shrink-0 bg-green-500 text-white px-3 py-1 text-sm rounded hover:bg-green-600 transition"
-                      >
-                        ✓ {tDashboard('complete')}
-                      </button>
+
+                      {/* Goal Content */}
+                      <div className="text-gray-800">
+                        <p className="font-semibold text-base whitespace-pre-wrap">{clean.title}</p>
+                        {clean.plan && (
+                          <div className="mt-2 text-sm text-gray-600 bg-gray-50 border border-gray-100 rounded-lg p-3 whitespace-pre-wrap">
+                            {clean.plan}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

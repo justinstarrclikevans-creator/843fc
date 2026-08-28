@@ -229,12 +229,14 @@ export default function LearningCenterPage() {
       return;
     }
 
-    const responseText = `N - Necesidad/Necessity: ${nameProfile.necessity}\nA - Aptitud/Aptitude: ${nameProfile.aptitude}\nM - Motivo/Motive: ${nameProfile.motive}\nE - Disfrute/Enjoyment: ${nameProfile.enjoyment}`;
+    const responseText = isEs
+      ? `N - Necesidad: ${nameProfile.necessity}\nA - Aptitud: ${nameProfile.aptitude}\nM - Motivo: ${nameProfile.motive}\nE - Disfrute: ${nameProfile.enjoyment}`
+      : `N - Necessity: ${nameProfile.necessity}\nA - Aptitude: ${nameProfile.aptitude}\nM - Motive: ${nameProfile.motive}\nE - Enjoyment: ${nameProfile.enjoyment}`;
     
     const { error } = await supabase.from('synapse_exercises').insert({
       player_id: currentUserId,
       module: 'A',
-      exercise_prompt: 'NAME Framework Profile',
+      exercise_prompt: isEs ? 'Perfil de Motivación (NAME)' : 'Motivation Profile (NAME)',
       response: responseText,
       status: 'active'
     }).select();
@@ -262,12 +264,15 @@ export default function LearningCenterPage() {
       return;
     }
 
-    const responseText = `Aplicando / Applying ${apseModule} a ${applyingTo.item.type}: "${applyingTo.item.text}"\n\nPlan: ${apsePlan}`;
+    const goalTitle = applyingTo.item.text;
+    const responseText = isEs
+      ? `${goalTitle}\n\nPlan de acción: ${apsePlan}`
+      : `${goalTitle}\n\nAction Plan: ${apsePlan}`;
     
     const { error } = await supabase.from('synapse_exercises').insert({
       player_id: currentUserId,
       module: apseModule,
-      exercise_prompt: `Applied to ${applyingTo.item.type}: ${applyingTo.item.text}`,
+      exercise_prompt: goalTitle,
       response: responseText,
       status: 'active'
     }).select();

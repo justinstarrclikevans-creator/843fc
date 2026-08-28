@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocale } from 'next-intl';
 import { supabase } from '@/lib/supabaseClient';
 import FeedbackThread from '@/components/FeedbackThread';
+import { formatCleanGoal, GOAL_STATUSES, GoalStatus } from '@/lib/goalUtils';
 
 export default function ParentView() {
   const locale = useLocale();
@@ -9,16 +10,15 @@ export default function ParentView() {
 
   const [children, setChildren] = useState<any[]>([]);
   const [goals, setGoals] = useState<any[]>([]);
+  const [checkins, setCheckins] = useState<any[]>([]);
+  const [agreements, setAgreements] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedChild, setSelectedChild] = useState<any | null>(null);
-  const [childCheckins, setChildCheckins] = useState<any[]>([]);
-  const [loadingChild, setLoadingChild] = useState(false);
 
   useEffect(() => {
-    fetchData();
+    fetchParentData();
   }, []);
 
-  async function fetchData() {
+  async function fetchParentData() {
     setLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session?.user) {
@@ -26,165 +26,229 @@ export default function ParentView() {
       return;
     }
 
+    // 1. Fetch linked children
     const { data: childrenData, error: childError } = await supabase
       .from('player_parents')
       .select(`
         player_id,
-        profiles!player_parents_player_id_fkey ( full_name )
+        profiles!player_parents_player_id_fkey ( id, full_name, email )
       `)
       .eq('parent_id', session.user.id);
       
     if (childError) console.error("Error fetching parent children:", childError);
 
-    if (childrenData) {
+    if (childrenData && childrenData.length > 0) {
       setChildren(childrenData);
-      
-      // Fetch goals for these children
       const childIds = childrenData.map(c => c.player_id);
-      if (childIds.length > 0) {
-        const { data: goalsData, error: goalsError } = await supabase
-          .from('synapse_exercises')
-          .select(`*, profiles:player_id ( full_name )`)
-          .in('player_id', childIds)
-          .eq('status', 'active');
-          
-        if (goalsError) console.error("Error fetching children goals:", goalsError);
-        if (goalsData) setGoals(goalsData);
-      }
+
+      // 2. Fetch goals for linked children
+      const { data: goalsData, error: goalsError } = await supabase
+        .from('synapse_exercises')
+        .select('*')
+        .in('player_id', childIds)
+        .order('created_at', { ascending: false });
+      if (goalsError) console.error("Error fetching children goals:", goalsError);
+      if (goalsData) setGoals(goalsData);
+
+      // 3. Fetch checkins for linked children
+      const { data: ciData, error: ciError } = await supabase
+        .from('daily_checkins')
+        .select('*')
+        .in('player_id', childIds)
+        .order('date', { ascending: false });
+      if (ciError) console.error("Error fetching children checkins:", ciError);
+      if (ciData) setCheckins(ciData);
+
+      // 4. Fetch agreements for linked children
+      const { data: agrData, error: agrError } = await supabase
+        .from('agreements')
+        .select('*')
+        .in('user_id', childIds);
+      if (agrError) console.error("Error fetching children agreements:", agrError);
+      if (agrData) setAgreements(agrData);
     }
+
     setLoading(false);
   }
 
-  async function openChildDetails(child: any) {
-    setSelectedChild(child);
-    setLoadingChild(true);
-
-    const { data: checkinsData, error: ciErr } = await supabase
-      .from('daily_checkins')
-      .select('*')
-      .eq('player_id', child.player_id)
-      .order('date', { ascending: false })
-      .limit(10);
-
-    if (ciErr) console.error("Error fetching child checkins:", ciErr);
-    setChildCheckins(checkinsData || []);
-    setLoadingChild(false);
-  }
-
-  const stressColor = (v: number) => v >= 8 ? 'text-red-600 font-bold' : v >= 5 ? 'text-yellow-600' : 'text-green-600';
+  const stressColor = (v?: number) => {
+    if (v === undefined || v === null) return 'text-gray-400';
+    return v >= 8 ? 'text-red-600 font-bold' : v >= 5 ? 'text-amber-600 font-medium' : 'text-emerald-600 font-medium';
+  };
 
   return (
     <div className="space-y-6 mt-6">
-      {/* My Players list */}
-      <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
-        <h2 className="text-xl font-semibold mb-4">{isEs ? 'Mis Jugadores' : 'My Players'}</h2>
-        {loading ? (
-          <p className="text-gray-400 text-sm">{isEs ? 'Cargando...' : 'Loading...'}</p>
-        ) : (
-          <div className="space-y-4">
-            {children.length === 0 && (
-              <p className="text-gray-500 text-sm italic">
-                {isEs ? 'No hay jugadores vinculados a tu cuenta todavía. Pide a tu entrenador que vincule tu cuenta.' : 'No players linked to your account yet. Ask your coach to link your account.'}
-              </p>
-            )}
-            {children.map(child => (
-              <div key={child.player_id} className="border p-4 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:bg-gray-50 transition">
-                <span className="font-bold text-lg text-gray-800">{child.profiles?.full_name || (isEs ? 'Jugador' : 'Player')}</span>
-                <button 
-                  onClick={() => openChildDetails(child)}
-                  className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700 transition"
-                >
-                  {isEs ? 'Ver Comentarios y Revisiones' : 'View Feedback & Check-ins'}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Header */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <h2 className="text-2xl font-bold text-gray-900">{isEs ? '👨‍👩‍👧 Panel de Padres' : '👨‍👩‍👧 Parent Dashboard'}</h2>
+        <p className="text-sm text-gray-500 mt-1">
+          {isEs 
+            ? 'Monitorea el bienestar diario, las metas activas y el progreso de tus jugadores en un solo lugar.' 
+            : 'Track daily wellness check-ins, active goals, and communicate with coaches for all your linked players.'}
+        </p>
       </div>
 
-      {/* Selected Child Details Modal/Section */}
-      {selectedChild && (
-        <div className="space-y-6 bg-blue-50/50 p-6 rounded-xl border border-blue-200">
-          <div className="flex justify-between items-center">
-            <h3 className="text-2xl font-bold text-gray-900">
-              {selectedChild.profiles?.full_name || (isEs ? 'Jugador' : 'Player')}
-            </h3>
-            <button 
-              onClick={() => setSelectedChild(null)}
-              className="text-sm bg-gray-200 text-gray-700 px-3 py-1.5 rounded hover:bg-gray-300 font-medium"
-            >
-              {isEs ? '✕ Cerrar Detalle' : '✕ Close'}
-            </button>
-          </div>
+      {loading ? (
+        <div className="bg-white p-12 text-center rounded-xl border border-gray-200">
+          <p className="text-gray-400 text-sm">{isEs ? 'Cargando jugadores vinculados...' : 'Loading linked players...'}</p>
+        </div>
+      ) : children.length === 0 ? (
+        <div className="bg-white p-12 text-center rounded-xl border border-dashed border-gray-300">
+          <p className="text-gray-600 font-medium mb-1">
+            {isEs ? 'No hay jugadores vinculados a tu cuenta todavía.' : 'No players linked to your account yet.'}
+          </p>
+          <p className="text-sm text-gray-400">
+            {isEs 
+              ? 'Pide a tu entrenador que vincule tu cuenta a tu(s) hijo(s) desde la sección de Gestión del Equipo.' 
+              : 'Ask your coach to link your account to your player(s) in the Team Management tab.'}
+          </p>
+        </div>
+      ) : (
+        /* Render ALL linked children simultaneously */
+        <div className="space-y-8">
+          {children.map(child => {
+            const playerId = child.player_id;
+            const playerName = child.profiles?.full_name || (isEs ? 'Jugador' : 'Player');
+            const playerCheckins = checkins.filter(ci => ci.player_id === playerId);
+            const latestCheckin = playerCheckins[0];
+            const playerGoals = goals.filter(g => g.player_id === playerId);
+            
+            const pAgreements = agreements.filter(a => a.user_id === playerId);
+            const hasLiability = pAgreements.some(a => a.agreement_type === 'liability_waiver');
+            const hasBehavior = pAgreements.some(a => a.agreement_type === 'behavior_contract');
 
-          {loadingChild ? (
-            <p className="text-gray-400 text-sm">{isEs ? 'Cargando datos...' : 'Loading data...'}</p>
-          ) : (
-            <>
-              {/* Recent Check-ins */}
-              <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
-                <h4 className="text-lg font-semibold mb-3">{isEs ? '📊 Revisiones Diarias Recientes' : '📊 Recent Daily Check-ins'}</h4>
-                {childCheckins.length === 0 ? (
-                  <p className="text-gray-400 italic text-sm">{isEs ? 'No hay revisiones aún.' : 'No check-ins yet.'}</p>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full text-sm text-left">
-                      <thead>
-                        <tr className="border-b text-gray-500">
-                          <th className="py-2 pr-3">{isEs ? 'Fecha' : 'Date'}</th>
-                          <th className="py-2 pr-3">{isEs ? 'Sueño' : 'Sleep'}</th>
-                          <th className="py-2 pr-3">{isEs ? 'Estrés' : 'Stress'}</th>
-                          <th className="py-2 pr-3">{isEs ? 'Ánimo' : 'Mood'}</th>
-                          <th className="py-2">{isEs ? 'Rendimiento' : 'Performance'}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {childCheckins.map(ci => (
-                          <tr key={ci.id} className="border-b">
-                            <td className="py-2 pr-3">{new Date(ci.date).toLocaleDateString()}</td>
-                            <td className="py-2 pr-3">{ci.sleep_hours}h</td>
-                            <td className={`py-2 pr-3 ${stressColor(ci.stress_level)}`}>{ci.stress_level}/10</td>
-                            <td className="py-2 pr-3">{ci.home_life_mood}/10</td>
-                            <td className="py-2">{ci.practice_performance}/10</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+            const activeGoals = playerGoals.filter(g => (g.status || 'active') === 'active');
+            const completedGoals = playerGoals.filter(g => g.status === 'completed');
+            const gaveUpGoals = playerGoals.filter(g => g.status === 'gave_up');
+
+            return (
+              <div key={playerId} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6">
+                {/* Child Header Card */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
+                  <div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl font-black text-gray-900">{playerName}</span>
+                      <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2.5 py-0.5 rounded-full">
+                        {isEs ? 'Jugador Vinculado' : 'Linked Player'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-0.5">{child.profiles?.email}</p>
                   </div>
-                )}
-              </div>
 
-              {/* Feedback Thread */}
-              <FeedbackThread playerId={selectedChild.player_id} />
-            </>
-          )}
+                  {/* Waivers status */}
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${hasLiability ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'}`}>
+                      {hasLiability ? (isEs ? '✓ Renuncia firmada' : '✓ Waiver signed') : (isEs ? '✗ Falta renuncia' : '✗ Waiver missing')}
+                    </span>
+                    <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${hasBehavior ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'}`}>
+                      {hasBehavior ? (isEs ? '✓ Contrato firmado' : '✓ Contract signed') : (isEs ? '✗ Falta contrato' : '✗ Contract missing')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Metrics & Goals Grid */}
+                <div className="grid gap-6 lg:grid-cols-2">
+                  {/* Latest Check-in Summary */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-sm font-bold text-gray-900">{isEs ? '📊 Última Revisión Diaria (TLCs)' : '📊 Latest Daily TLC Check-in'}</h3>
+                      {latestCheckin ? (
+                        <span className="text-xs text-gray-500 font-medium">{new Date(latestCheckin.date).toLocaleDateString()}</span>
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">{isEs ? 'Sin registros' : 'No check-ins yet'}</span>
+                      )}
+                    </div>
+
+                    {latestCheckin ? (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                          <div className="bg-white rounded-lg p-2 border border-gray-100 shadow-xs">
+                            <div className="text-[11px] text-gray-400 font-medium">{isEs ? 'Sueño' : 'Sleep'}</div>
+                            <div className="font-bold text-gray-800 text-sm mt-0.5">{latestCheckin.sleep_hours}h</div>
+                          </div>
+                          <div className="bg-white rounded-lg p-2 border border-gray-100 shadow-xs">
+                            <div className="text-[11px] text-gray-400 font-medium">{isEs ? 'Estrés' : 'Stress'}</div>
+                            <div className={`font-bold text-sm mt-0.5 ${stressColor(latestCheckin.stress_level)}`}>{latestCheckin.stress_level}/10</div>
+                          </div>
+                          <div className="bg-white rounded-lg p-2 border border-gray-100 shadow-xs">
+                            <div className="text-[11px] text-gray-400 font-medium">{isEs ? 'Ánimo' : 'Mood'}</div>
+                            <div className="font-bold text-gray-800 text-sm mt-0.5">{latestCheckin.home_life_mood}/10</div>
+                          </div>
+                          <div className="bg-white rounded-lg p-2 border border-gray-100 shadow-xs">
+                            <div className="text-[11px] text-gray-400 font-medium">{isEs ? 'Rend.' : 'Perf.'}</div>
+                            <div className="font-bold text-gray-800 text-sm mt-0.5">{latestCheckin.practice_performance}/10</div>
+                          </div>
+                        </div>
+
+                        <div className="text-xs text-gray-500 bg-white rounded-lg p-2.5 border border-gray-100 flex justify-between">
+                          <span>{isEs ? '¿Desayunó?' : 'Ate breakfast:'} <strong className="text-gray-800">{latestCheckin.nutrition_breakfast ? (isEs ? 'Sí' : 'Yes') : (isEs ? 'No' : 'No')}</strong></span>
+                          <span>{isEs ? 'Hidratación:' : 'Hydration:'} <strong className="text-gray-800 capitalize">{latestCheckin.hydration_rating || 'Good'}</strong></span>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic text-center py-6">
+                        {isEs ? 'Tu jugador aún no ha completado una revisión diaria.' : 'Your player has not submitted a daily check-in yet.'}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Goals Tracker for this child */}
+                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                    <div className="flex justify-between items-center mb-3">
+                      <h3 className="text-sm font-bold text-gray-900">{isEs ? '🎯 Metas y Progreso' : '🎯 Goals Tracker'}</h3>
+                      <div className="flex gap-1.5 text-[11px] font-semibold">
+                        <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                          🟡 {activeGoals.length} {isEs ? 'en progreso' : 'working'}
+                        </span>
+                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                          🟢 {completedGoals.length} {isEs ? 'completadas' : 'done'}
+                        </span>
+                      </div>
+                    </div>
+
+                    {playerGoals.length === 0 ? (
+                      <p className="text-xs text-gray-400 italic text-center py-6">
+                        {isEs ? 'Tu jugador no tiene metas registradas aún.' : 'Your player has not created any goals yet.'}
+                      </p>
+                    ) : (
+                      <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                        {playerGoals.map(goal => {
+                          const s = (goal.status || 'active') as GoalStatus;
+                          const sCfg = GOAL_STATUSES[s] || GOAL_STATUSES.active;
+                          const clean = formatCleanGoal(goal.response, isEs);
+
+                          return (
+                            <div key={goal.id} className="bg-white border border-gray-200 rounded-lg p-3 text-xs shadow-2xs">
+                              <div className="flex justify-between items-center mb-1">
+                                <span className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full border ${sCfg.badgeClass}`}>
+                                  <span className={`w-1.5 h-1.5 rounded-full ${sCfg.dotColor}`}></span>
+                                  {isEs ? sCfg.labelEs : sCfg.labelEn}
+                                </span>
+                                <span className="text-gray-400 text-[10px]">{new Date(goal.created_at).toLocaleDateString()}</span>
+                              </div>
+                              <p className="font-semibold text-gray-800 whitespace-pre-wrap">{clean.title}</p>
+                              {clean.plan && (
+                                <p className="text-gray-600 mt-1 text-[11px] whitespace-pre-wrap bg-gray-50 p-1.5 rounded">
+                                  {clean.plan}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Direct Feedback & Support conversation for this child */}
+                <div className="pt-2">
+                  <FeedbackThread playerId={playerId} />
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
-
-      {/* Active Goals list */}
-      <div className="bg-white p-6 rounded-lg shadow border border-gray-100">
-        <h2 className="text-xl font-semibold mb-4">{isEs ? 'Metas Activas de mis Jugadores' : 'Player Active Goals'}</h2>
-        {loading ? (
-          <p className="text-gray-400 text-sm">{isEs ? 'Cargando metas...' : 'Loading goals...'}</p>
-        ) : goals.length === 0 ? (
-          <p className="text-gray-500 text-sm italic">{isEs ? 'Tus jugadores no tienen metas activas en este momento.' : 'Your player has no active goals right now.'}</p>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {goals.map(goal => (
-              <div key={goal.id} className="border border-blue-100 bg-blue-50 p-4 rounded-lg">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-bold text-blue-900">{goal.profiles?.full_name}</span>
-                  <span className="text-xs font-bold bg-blue-200 text-blue-800 px-2 py-1 rounded">
-                    Module {goal.module}
-                  </span>
-                </div>
-                <p className="text-gray-800 text-sm whitespace-pre-wrap">{goal.response}</p>
-                <p className="text-gray-400 text-xs mt-2">{isEs ? 'Iniciada el' : 'Started'} {new Date(goal.created_at).toLocaleDateString()}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
