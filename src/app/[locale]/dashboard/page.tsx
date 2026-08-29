@@ -290,6 +290,14 @@ export default function DashboardPage() {
                             {clean.plan}
                           </div>
                         )}
+                        {clean.apes && (
+                          <div className="mt-2 space-y-1.5 bg-gray-50 border border-gray-100 rounded-lg p-3 text-xs">
+                            {clean.apes.a && <div><strong className="text-blue-700">A ({isEs ? 'Porqué' : 'Why'}):</strong> {clean.apes.a}</div>}
+                            {clean.apes.p && <div><strong className="text-emerald-700">P ({isEs ? 'Imágenes / Fortalezas' : 'Past Strengths'}):</strong> {clean.apes.p}</div>}
+                            {clean.apes.e && <div><strong className="text-orange-700">E ({isEs ? 'Ingeniería / TLCs' : 'Engineering / TLCs'}):</strong> {clean.apes.e}</div>}
+                            {clean.apes.s && <div><strong className="text-purple-700">S ({isEs ? 'Splash / Efecto Dominó' : 'Splash / Ripple'}):</strong> {clean.apes.s}</div>}
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

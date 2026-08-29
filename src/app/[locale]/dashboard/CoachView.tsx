@@ -172,7 +172,7 @@ export default function CoachView() {
               <div>
                 <h2 className="text-xl font-bold text-gray-900">{isEs ? 'Lista General de Jugadores' : 'All Players Overview'}</h2>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  {isEs ? 'Supervisa el estado de salud, metas y acuerdos de todo el equipo en un solo lugar.' : 'Monitor daily health check-ins, goals progress, and waiver status for the entire team at once.'}
+                  {isEs ? 'Supervisa la salud, metas, verificación de padres y acuerdos de todo el equipo.' : 'Monitor daily health check-ins, parent accuracy reviews, goals progress, and waiver status for the whole team.'}
                 </p>
               </div>
               <button 
@@ -222,7 +222,7 @@ export default function CoachView() {
                           </div>
                         </div>
 
-                        {/* Latest Check-in Metrics */}
+                        {/* Latest Check-in Metrics + Parent Verification Status */}
                         <div className="bg-gray-50 border border-gray-100 rounded-lg p-3 flex-1 min-w-[280px]">
                           <div className="flex justify-between items-center mb-1.5">
                             <span className="text-xs font-bold text-gray-700">{isEs ? 'Último Registro (TLCs):' : 'Latest TLC Check-in:'}</span>
@@ -233,23 +233,50 @@ export default function CoachView() {
                             )}
                           </div>
                           {latestCheckin ? (
-                            <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                              <div className="bg-white rounded p-1.5 border border-gray-100">
-                                <div className="text-[10px] text-gray-400 font-medium">{isEs ? 'Sueño' : 'Sleep'}</div>
-                                <div className="font-bold text-gray-800">{latestCheckin.sleep_hours}h</div>
+                            <div>
+                              <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                                <div className="bg-white rounded p-1.5 border border-gray-100">
+                                  <div className="text-[10px] text-gray-400 font-medium">{isEs ? 'Sueño' : 'Sleep'}</div>
+                                  <div className="font-bold text-gray-800">{latestCheckin.sleep_hours}h</div>
+                                </div>
+                                <div className="bg-white rounded p-1.5 border border-gray-100">
+                                  <div className="text-[10px] text-gray-400 font-medium">{isEs ? 'Estrés' : 'Stress'}</div>
+                                  <div className={`font-bold ${stressColor(latestCheckin.stress_level)}`}>{latestCheckin.stress_level}/10</div>
+                                </div>
+                                <div className="bg-white rounded p-1.5 border border-gray-100">
+                                  <div className="text-[10px] text-gray-400 font-medium">{isEs ? 'Ánimo' : 'Mood'}</div>
+                                  <div className="font-bold text-gray-800">{latestCheckin.home_life_mood}/10</div>
+                                </div>
+                                <div className="bg-white rounded p-1.5 border border-gray-100">
+                                  <div className="text-[10px] text-gray-400 font-medium">{isEs ? 'Rend.' : 'Perf.'}</div>
+                                  <div className="font-bold text-gray-800">{latestCheckin.practice_performance}/10</div>
+                                </div>
                               </div>
-                              <div className="bg-white rounded p-1.5 border border-gray-100">
-                                <div className="text-[10px] text-gray-400 font-medium">{isEs ? 'Estrés' : 'Stress'}</div>
-                                <div className={`font-bold ${stressColor(latestCheckin.stress_level)}`}>{latestCheckin.stress_level}/10</div>
+
+                              {/* Parent Feedback indicator for coach */}
+                              <div className="mt-2 pt-2 border-t border-gray-200 flex flex-wrap items-center justify-between gap-1 text-[11px]">
+                                <span className="text-gray-500 font-semibold">{isEs ? 'Revisión de Padres:' : 'Parent Review:'}</span>
+                                {latestCheckin.parent_feedback === 'accurate' && (
+                                  <span className="bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                                    ✅ {isEs ? 'Confirmado Exacto' : 'Verified Accurate'}
+                                  </span>
+                                )}
+                                {latestCheckin.parent_feedback === 'inaccurate' && (
+                                  <span className="bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded-full">
+                                    ⚠️ {isEs ? 'Marcado Inexacto' : 'Flagged Inaccurate'}
+                                  </span>
+                                )}
+                                {(!latestCheckin.parent_feedback || latestCheckin.parent_feedback === 'unreviewed') && (
+                                  <span className="text-gray-400 italic">
+                                    ⏳ {isEs ? 'Sin verificar' : 'Pending review'}
+                                  </span>
+                                )}
                               </div>
-                              <div className="bg-white rounded p-1.5 border border-gray-100">
-                                <div className="text-[10px] text-gray-400 font-medium">{isEs ? 'Ánimo' : 'Mood'}</div>
-                                <div className="font-bold text-gray-800">{latestCheckin.home_life_mood}/10</div>
-                              </div>
-                              <div className="bg-white rounded p-1.5 border border-gray-100">
-                                <div className="text-[10px] text-gray-400 font-medium">{isEs ? 'Rend.' : 'Perf.'}</div>
-                                <div className="font-bold text-gray-800">{latestCheckin.practice_performance}/10</div>
-                              </div>
+                              {latestCheckin.parent_notes && (
+                                <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-100 p-1.5 rounded mt-1.5">
+                                  💬 <strong>{isEs ? 'Nota de padres:' : 'Parent Note:'}</strong> "{latestCheckin.parent_notes}"
+                                </p>
+                              )}
                             </div>
                           ) : (
                             <p className="text-xs text-gray-400 italic text-center py-2">
@@ -318,6 +345,14 @@ export default function CoachView() {
                                   </div>
                                   <p className="font-semibold text-gray-800 whitespace-pre-wrap">{clean.title}</p>
                                   {clean.plan && <p className="text-gray-600 mt-1 whitespace-pre-wrap">{clean.plan}</p>}
+                                  {clean.apes && (
+                                    <div className="mt-2 space-y-1 bg-white p-2 rounded text-[11px] border border-gray-150">
+                                      {clean.apes.a && <div><strong className="text-blue-700">A (Why):</strong> {clean.apes.a}</div>}
+                                      {clean.apes.p && <div><strong className="text-emerald-700">P (Pictures):</strong> {clean.apes.p}</div>}
+                                      {clean.apes.e && <div><strong className="text-orange-700">E (Engineering):</strong> {clean.apes.e}</div>}
+                                      {clean.apes.s && <div><strong className="text-purple-700">S (Splash):</strong> {clean.apes.s}</div>}
+                                    </div>
+                                  )}
                                 </div>
                               );
                             })}
@@ -411,6 +446,14 @@ export default function CoachView() {
                     {clean.plan && (
                       <div className="mt-2 text-xs text-gray-600 bg-gray-50 border border-gray-100 rounded p-2.5 whitespace-pre-wrap">
                         {clean.plan}
+                      </div>
+                    )}
+                    {clean.apes && (
+                      <div className="mt-2 space-y-1 bg-gray-50 p-2.5 rounded text-xs border border-gray-100">
+                        {clean.apes.a && <div><strong className="text-blue-700">A (Why):</strong> {clean.apes.a}</div>}
+                        {clean.apes.p && <div><strong className="text-emerald-700">P (Pictures):</strong> {clean.apes.p}</div>}
+                        {clean.apes.e && <div><strong className="text-orange-700">E (Engineering):</strong> {clean.apes.e}</div>}
+                        {clean.apes.s && <div><strong className="text-purple-700">S (Splash):</strong> {clean.apes.s}</div>}
                       </div>
                     )}
                   </div>

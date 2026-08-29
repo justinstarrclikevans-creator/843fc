@@ -16,8 +16,6 @@ type NameProfile = {
 type StruggleGoal = {
   type: 'struggle' | 'goal';
   text: string;
-  module?: string;
-  plan?: string;
 };
 
 type ModuleData = {
@@ -166,9 +164,15 @@ export default function LearningCenterPage() {
   const [goals, setGoals] = useState<StruggleGoal[]>([]);
   const [newStruggle, setNewStruggle] = useState('');
   const [newGoal, setNewGoal] = useState('');
-  const [applyingTo, setApplyingTo] = useState<{item: StruggleGoal; index: number; type: 'struggle'|'goal'} | null>(null);
-  const [apseModule, setApseModule] = useState('A');
-  const [apsePlan, setApsePlan] = useState('');
+  
+  // APES Multi-box Application State
+  const [applyingTo, setApplyingTo] = useState<{ item: StruggleGoal; index: number; type: 'struggle'|'goal' } | null>(null);
+  const [apesPlan, setApesPlan] = useState<{ a: string; p: string; e: string; s: string }>({
+    a: '',
+    p: '',
+    e: '',
+    s: '',
+  });
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -197,7 +201,7 @@ export default function LearningCenterPage() {
       return;
     }
 
-    const { data, error } = await supabase.from('synapse_exercises').insert({
+    const { error } = await supabase.from('synapse_exercises').insert({
       player_id: currentUserId,
       module: moduleId,
       exercise_prompt: promptText,
@@ -253,8 +257,9 @@ export default function LearningCenterPage() {
     alert(isEs ? '✅ ¡Tu perfil NAME ha sido guardado en tus metas!' : '✅ Your NAME profile has been saved to your goals!');
   };
 
-  const applyApseToProblem = async () => {
-    if (!apsePlan.trim() || !applyingTo) return;
+  const applyApesToProblem = async () => {
+    const hasAnyPlan = Object.values(apesPlan).some(v => v.trim());
+    if (!hasAnyPlan || !applyingTo) return;
     setSaving(true);
 
     const currentUserId = await getEffectiveUserId();
@@ -265,13 +270,26 @@ export default function LearningCenterPage() {
     }
 
     const goalTitle = applyingTo.item.text;
-    const responseText = isEs
-      ? `${goalTitle}\n\nPlan de acción: ${apsePlan}`
-      : `${goalTitle}\n\nAction Plan: ${apsePlan}`;
+    const lines = [goalTitle];
+
+    if (apesPlan.a.trim()) {
+      lines.push(`A — ${isEs ? 'Activa Tu Porqué' : 'Activate Your Why'}: ${apesPlan.a.trim()}`);
+    }
+    if (apesPlan.p.trim()) {
+      lines.push(`P — ${isEs ? 'Imágenes / Fortalezas Pasadas' : 'Pictures / Past Strengths'}: ${apesPlan.p.trim()}`);
+    }
+    if (apesPlan.e.trim()) {
+      lines.push(`E — ${isEs ? 'Ingeniería / Hábitos TLC' : 'Engineering / TLC Habits'}: ${apesPlan.e.trim()}`);
+    }
+    if (apesPlan.s.trim()) {
+      lines.push(`S — ${isEs ? 'Splash / Efecto Dominó' : 'Splash / Ripple Effect'}: ${apesPlan.s.trim()}`);
+    }
+
+    const responseText = lines.join('\n\n');
     
     const { error } = await supabase.from('synapse_exercises').insert({
       player_id: currentUserId,
-      module: apseModule,
+      module: 'APES',
       exercise_prompt: goalTitle,
       response: responseText,
       status: 'active'
@@ -280,14 +298,14 @@ export default function LearningCenterPage() {
     setSaving(false);
 
     if (error) {
-      console.error('Error saving APSE plan:', error);
+      console.error('Error saving APES plan:', error);
       alert((isEs ? 'Error al guardar el plan: ' : 'Error saving plan: ') + error.message);
       return;
     }
 
     setApplyingTo(null);
-    setApsePlan('');
-    alert(isEs ? '✅ ¡Plan guardado en tu Panel!' : '✅ Plan saved to your Dashboard!');
+    setApesPlan({ a: '', p: '', e: '', s: '' });
+    alert(isEs ? '✅ ¡Plan guardado en tu Panel de Metas!' : '✅ APES Plan saved to your Dashboard!');
   };
 
   return (
@@ -301,60 +319,231 @@ export default function LearningCenterPage() {
       </div>
 
       {/* --- Struggles & Goals Box --- */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow p-6 mb-8">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 mb-8">
         <h2 className="text-xl font-bold mb-1">{isEs ? 'Mis Dificultades y Metas' : 'My Struggles & Goals'}</h2>
-        <p className="text-gray-500 text-sm mb-4">{isEs ? 'Escribe lo que estás enfrentando o hacia lo que estás trabajando. Luego usa las lecciones APSE para construir un plan para cada uno.' : "Write down what you're dealing with or what you're working toward. Then use the APSE lessons below to build a plan for each one."}</p>
+        <p className="text-gray-500 text-sm mb-4">
+          {isEs 
+            ? 'Escribe lo que estás enfrentando o hacia lo que estás trabajando. Luego usa las 4 cajas APES para construir un plan completo para cada una.' 
+            : "Write down what you're dealing with or working toward. Then use the 4 APES boxes to build a game plan for each one."}
+        </p>
+        
         <div className="grid md:grid-cols-2 gap-6">
           {/* Struggles */}
-          <div>
-            <h3 className="font-semibold text-red-700 mb-2">{isEs ? '😤 Mis Dificultades' : '😤 My Struggles'}</h3>
-            <div className="flex gap-2 mb-2">
-              <input value={newStruggle} onChange={e => setNewStruggle(e.target.value)} placeholder={isEs ? 'Algo con lo que estoy luchando...' : "Something I'm struggling with..."} className="flex-1 border rounded p-2 text-sm" />
-              <button onClick={() => { if (newStruggle.trim()) { setStruggles([...struggles, { type: 'struggle', text: newStruggle }]); setNewStruggle(''); }}} className="bg-red-500 text-white px-3 py-2 rounded text-sm hover:bg-red-600 transition">{isEs ? 'Agregar' : 'Add'}</button>
+          <div className="bg-red-50/50 p-4 rounded-xl border border-red-100">
+            <h3 className="font-bold text-red-800 mb-2">{isEs ? '😤 Mis Dificultades' : '😤 My Struggles'}</h3>
+            <div className="flex gap-2 mb-3">
+              <input 
+                value={newStruggle} 
+                onChange={e => setNewStruggle(e.target.value)} 
+                placeholder={isEs ? 'Algo con lo que estoy luchando...' : "Something I'm struggling with..."} 
+                className="flex-1 border border-gray-300 rounded-lg p-2 text-sm bg-white" 
+              />
+              <button 
+                onClick={() => { 
+                  if (newStruggle.trim()) { 
+                    setStruggles([...struggles, { type: 'struggle', text: newStruggle }]); 
+                    setNewStruggle(''); 
+                  }
+                }} 
+                className="bg-red-600 text-white px-3.5 py-2 rounded-lg text-sm font-semibold hover:bg-red-700 transition"
+              >
+                {isEs ? 'Agregar' : 'Add'}
+              </button>
             </div>
             <ul className="space-y-2">
               {struggles.map((s, i) => (
-                <li key={i} className="bg-red-50 border border-red-100 rounded p-2 text-sm flex justify-between items-start gap-2">
-                  <span>{s.text}</span>
-                  <button onClick={() => setApplyingTo({ item: s, index: i, type: 'struggle' })} className="shrink-0 text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition">{isEs ? 'Aplicar APSE' : 'Apply APSE'}</button>
+                <li key={i} className="bg-white border border-red-200 rounded-lg p-3 text-sm flex justify-between items-start gap-2 shadow-xs">
+                  <span className="font-medium text-gray-800">{s.text}</span>
+                  <button 
+                    onClick={() => {
+                      setApplyingTo({ item: s, index: i, type: 'struggle' });
+                      setApesPlan({ a: '', p: '', e: '', s: '' });
+                    }} 
+                    className="shrink-0 text-xs bg-blue-600 text-white font-semibold px-2.5 py-1 rounded hover:bg-blue-700 transition"
+                  >
+                    {isEs ? 'Aplicar APES' : 'Apply APES'}
+                  </button>
                 </li>
               ))}
+              {struggles.length === 0 && (
+                <li className="text-xs text-gray-400 italic py-2">{isEs ? 'No has agregado dificultades aún.' : 'No struggles added yet.'}</li>
+              )}
             </ul>
           </div>
+
           {/* Goals */}
-          <div>
-            <h3 className="font-semibold text-green-700 mb-2">{isEs ? '🎯 Mis Metas' : '🎯 My Goals'}</h3>
-            <div className="flex gap-2 mb-2">
-              <input value={newGoal} onChange={e => setNewGoal(e.target.value)} placeholder={isEs ? 'Algo hacia lo que estoy trabajando...' : "Something I'm working toward..."} className="flex-1 border rounded p-2 text-sm" />
-              <button onClick={() => { if (newGoal.trim()) { setGoals([...goals, { type: 'goal', text: newGoal }]); setNewGoal(''); }}} className="bg-green-600 text-white px-3 py-2 rounded text-sm hover:bg-green-700 transition">{isEs ? 'Agregar' : 'Add'}</button>
+          <div className="bg-green-50/50 p-4 rounded-xl border border-green-100">
+            <h3 className="font-bold text-emerald-800 mb-2">{isEs ? '🎯 Mis Metas' : '🎯 My Goals'}</h3>
+            <div className="flex gap-2 mb-3">
+              <input 
+                value={newGoal} 
+                onChange={e => setNewGoal(e.target.value)} 
+                placeholder={isEs ? 'Algo hacia lo que estoy trabajando...' : "Something I'm working toward..."} 
+                className="flex-1 border border-gray-300 rounded-lg p-2 text-sm bg-white" 
+              />
+              <button 
+                onClick={() => { 
+                  if (newGoal.trim()) { 
+                    setGoals([...goals, { type: 'goal', text: newGoal }]); 
+                    setNewGoal(''); 
+                  }
+                }} 
+                className="bg-emerald-600 text-white px-3.5 py-2 rounded-lg text-sm font-semibold hover:bg-emerald-700 transition"
+              >
+                {isEs ? 'Agregar' : 'Add'}
+              </button>
             </div>
             <ul className="space-y-2">
               {goals.map((g, i) => (
-                <li key={i} className="bg-green-50 border border-green-100 rounded p-2 text-sm flex justify-between items-start gap-2">
-                  <span>{g.text}</span>
-                  <button onClick={() => setApplyingTo({ item: g, index: i, type: 'goal' })} className="shrink-0 text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition">{isEs ? 'Aplicar APSE' : 'Apply APSE'}</button>
+                <li key={i} className="bg-white border border-emerald-200 rounded-lg p-3 text-sm flex justify-between items-start gap-2 shadow-xs">
+                  <span className="font-medium text-gray-800">{g.text}</span>
+                  <button 
+                    onClick={() => {
+                      setApplyingTo({ item: g, index: i, type: 'goal' });
+                      setApesPlan({ a: '', p: '', e: '', s: '' });
+                    }} 
+                    className="shrink-0 text-xs bg-blue-600 text-white font-semibold px-2.5 py-1 rounded hover:bg-blue-700 transition"
+                  >
+                    {isEs ? 'Aplicar APES' : 'Apply APES'}
+                  </button>
                 </li>
               ))}
+              {goals.length === 0 && (
+                <li className="text-xs text-gray-400 italic py-2">{isEs ? 'No has agregado metas aún.' : 'No goals added yet.'}</li>
+              )}
             </ul>
           </div>
         </div>
 
-        {/* APSE apply modal */}
+        {/* --- APES Multi-box Application Form (Replacing dropdown with distinct A, P, E, S boxes) --- */}
         {applyingTo && (
-          <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="font-semibold mb-2">{isEs ? 'Aplicando una herramienta APSE a:' : 'Applying an APSE tool to:'} <span className="text-blue-700">"{applyingTo.item.text}"</span></p>
-            <select value={apseModule} onChange={e => setApseModule(e.target.value)} className="border rounded p-2 text-sm mb-3">
-              <option value="A">{isEs ? 'A — Activa Tu Porqué' : 'A — Activate Your Why'}</option>
-              <option value="P">{isEs ? 'P — Imágenes (Fortalezas Pasadas)' : 'P — Pictures (Past Strengths)'}</option>
-              <option value="S">{isEs ? 'S — El Splash (Efecto Dominó)' : 'S — Splash (Ripple Effect)'}</option>
-              <option value="E">{isEs ? 'E — Ingeniería (TLCs)' : 'E — Engineering (TLCs)'}</option>
-            </select>
-            <textarea value={apsePlan} onChange={e => setApsePlan(e.target.value)} rows={3} placeholder={isEs ? `¿Cómo te ayudará ${apseModule} con esto? Escribe tu plan...` : `How will ${apseModule} help you with this? Write your plan...`} className="w-full border rounded p-2 text-sm mb-2" />
-            <div className="flex gap-2">
-              <button onClick={applyApseToProblem} disabled={saving || !apsePlan.trim()} className="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:bg-blue-300 hover:bg-blue-700 transition">
-                {saving ? (isEs ? 'Guardando...' : 'Saving...') : (isEs ? 'Guardar Plan en Dashboard' : 'Save Plan to Dashboard')}
+          <div className="mt-8 bg-blue-50/70 border-2 border-blue-300 rounded-2xl p-6 space-y-5">
+            <div className="flex justify-between items-start">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-blue-700">
+                  {isEs ? 'Aplicando Marco APES a:' : 'Applying APES Framework to:'}
+                </span>
+                <h3 className="text-xl font-bold text-gray-900 mt-0.5">"{applyingTo.item.text}"</h3>
+                <p className="text-xs text-gray-600 mt-1">
+                  {isEs 
+                    ? 'Escribe cómo aplicarás cada elemento (A, P, E, S) para superar esta dificultad o alcanzar esta meta.' 
+                    : 'Fill in how you will apply each part of APES (A, P, E, S) to conquer this struggle or achieve this goal.'}
+                </p>
+              </div>
+              <button 
+                onClick={() => setApplyingTo(null)}
+                className="text-gray-400 hover:text-gray-600 text-lg font-bold p-1"
+              >
+                ✕
               </button>
-              <button onClick={() => { setApplyingTo(null); setApsePlan(''); }} className="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm hover:bg-gray-300 transition">{isEs ? 'Cancelar' : 'Cancel'}</button>
+            </div>
+
+            {/* 4 Dedicated Boxes for A, P, E, S */}
+            <div className="grid gap-4 md:grid-cols-2">
+              {/* Box A */}
+              <div className="bg-white p-4 rounded-xl border border-blue-200 shadow-xs">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-0.5 rounded">A</span>
+                  <label className="text-sm font-bold text-gray-900">
+                    {isEs ? 'Activa Tu Porqué (Motivación)' : 'Activate Your Why (Motivation)'}
+                  </label>
+                </div>
+                <p className="text-[11px] text-gray-500 mb-2">
+                  {isEs 
+                    ? '¿Por qué te importa superar esto? ¿Cuál es tu razón o fuego interno?' 
+                    : "Why does overcoming this matter to you? What's your deep motivation?"}
+                </p>
+                <textarea 
+                  value={apesPlan.a} 
+                  onChange={e => setApesPlan(prev => ({ ...prev, a: e.target.value }))}
+                  rows={3} 
+                  placeholder={isEs ? 'Escribe tu porqué aquí...' : 'Write your reason / why here...'} 
+                  className="w-full border border-gray-300 rounded-lg p-2.5 text-xs focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Box P */}
+              <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-xs">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-0.5 rounded">P</span>
+                  <label className="text-sm font-bold text-gray-900">
+                    {isEs ? 'Imágenes (Fortalezas Pasadas)' : 'Pictures (Past Strengths)'}
+                  </label>
+                </div>
+                <p className="text-[11px] text-gray-500 mb-2">
+                  {isEs 
+                    ? '¿Qué fortaleza o experiencia pasada difícil superaste que puedes usar ahora?' 
+                    : 'What past obstacle did you beat or coping skill will you rely on?'}
+                </p>
+                <textarea 
+                  value={apesPlan.p} 
+                  onChange={e => setApesPlan(prev => ({ ...prev, p: e.target.value }))}
+                  rows={3} 
+                  placeholder={isEs ? 'Escribe la fortaleza o recuerdo que usarás...' : 'Write the past strength you will draw from...'} 
+                  className="w-full border border-gray-300 rounded-lg p-2.5 text-xs focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+
+              {/* Box E */}
+              <div className="bg-white p-4 rounded-xl border border-orange-200 shadow-xs">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="bg-orange-100 text-orange-800 text-xs font-bold px-2 py-0.5 rounded">E</span>
+                  <label className="text-sm font-bold text-gray-900">
+                    {isEs ? 'Ingeniería (Hábitos TLC)' : 'Engineering (TLC Habits)'}
+                  </label>
+                </div>
+                <p className="text-[11px] text-gray-500 mb-2">
+                  {isEs 
+                    ? '¿Qué hábito diario (Sueño, Nutrición, Hidratación, Estrés) mejorarás para apoyarte?' 
+                    : 'What daily habit (Sleep, Nutrition, Hydration, Stress) will you adjust?'}
+                </p>
+                <textarea 
+                  value={apesPlan.e} 
+                  onChange={e => setApesPlan(prev => ({ ...prev, e: e.target.value }))}
+                  rows={3} 
+                  placeholder={isEs ? 'Ej: Dormir 8h, beber más agua, respirar ante la frustración...' : 'e.g., 8h sleep, drink water before game, breathing exercise...'} 
+                  className="w-full border border-gray-300 rounded-lg p-2.5 text-xs focus:ring-orange-500 focus:border-orange-500"
+                />
+              </div>
+
+              {/* Box S */}
+              <div className="bg-white p-4 rounded-xl border border-purple-200 shadow-xs">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="bg-purple-100 text-purple-800 text-xs font-bold px-2 py-0.5 rounded">S</span>
+                  <label className="text-sm font-bold text-gray-900">
+                    {isEs ? 'Splash (Efecto Dominó)' : 'Splash (Ripple Effect)'}
+                  </label>
+                </div>
+                <p className="text-[11px] text-gray-500 mb-2">
+                  {isEs 
+                    ? '¿Quién en tu familia, equipo o amigos sentirá el impacto positivo de tu éxito?' 
+                    : 'Who in your life, family, or team will feel your positive ripple effect?'}
+                </p>
+                <textarea 
+                  value={apesPlan.s} 
+                  onChange={e => setApesPlan(prev => ({ ...prev, s: e.target.value }))}
+                  rows={3} 
+                  placeholder={isEs ? '¿A quién impactará positivamente tu cambio?' : 'Who will feel the positive impact of your change?'} 
+                  className="w-full border border-gray-300 rounded-lg p-2.5 text-xs focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-2">
+              <button 
+                onClick={applyApesToProblem} 
+                disabled={saving || !Object.values(apesPlan).some(v => v.trim())} 
+                className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold disabled:bg-blue-300 hover:bg-blue-700 transition shadow-sm"
+              >
+                {saving ? (isEs ? 'Guardando...' : 'Saving...') : (isEs ? 'Guardar Plan APES en Dashboard' : 'Save APES Plan to Dashboard')}
+              </button>
+              <button 
+                onClick={() => setApplyingTo(null)} 
+                className="bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-semibold hover:bg-gray-300 transition"
+              >
+                {isEs ? 'Cancelar' : 'Cancel'}
+              </button>
             </div>
           </div>
         )}

@@ -36,16 +36,72 @@ export const GOAL_STATUSES: Record<GoalStatus, GoalStatusConfig> = {
   },
 };
 
+export interface CleanGoalResult {
+  title: string;
+  plan?: string;
+  apes?: {
+    a?: string;
+    p?: string;
+    e?: string;
+    s?: string;
+  };
+}
+
 /**
  * Strips robotic prefixes like 'Aplicando / Applying A a goal: "..." \n\nPlan: ...'
  * and returns a clean, human-readable goal statement and plan.
  */
-export function formatCleanGoal(text: string, isEs: boolean): { title: string; plan?: string } {
+export function formatCleanGoal(text: string, isEs: boolean): CleanGoalResult {
   if (!text) return { title: '' };
 
   const raw = text.trim();
 
-  // Pattern 1: 'Aplicando / Applying X a/to goal/struggle: "TITLE" \n\n Plan: PLAN'
+  // Pattern 1: APES structured goal:
+  // Title
+  // \n\nA - Activate Why: ...
+  // \nP - Pictures: ...
+  // \nE - Engineering: ...
+  // \nS - Splash: ...
+  if (raw.includes('A —') || raw.includes('A -') || raw.includes('P —') || raw.includes('P -')) {
+    const lines = raw.split('\n');
+    let title = '';
+    const apes: { a?: string; p?: string; e?: string; s?: string } = {};
+
+    let currentSection: 'title' | 'a' | 'p' | 'e' | 's' = 'title';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      if (/^A\s*[—-]\s*/i.test(trimmed)) {
+        currentSection = 'a';
+        apes.a = trimmed.replace(/^A\s*[—-]\s*[^:]*:\s*/i, '').trim();
+      } else if (/^P\s*[—-]\s*/i.test(trimmed)) {
+        currentSection = 'p';
+        apes.p = trimmed.replace(/^P\s*[—-]\s*[^:]*:\s*/i, '').trim();
+      } else if (/^E\s*[—-]\s*/i.test(trimmed)) {
+        currentSection = 'e';
+        apes.e = trimmed.replace(/^E\s*[—-]\s*[^:]*:\s*/i, '').trim();
+      } else if (/^S\s*[—-]\s*/i.test(trimmed)) {
+        currentSection = 's';
+        apes.s = trimmed.replace(/^S\s*[—-]\s*[^:]*:\s*/i, '').trim();
+      } else if (currentSection === 'title') {
+        title = title ? `${title} ${trimmed}` : trimmed;
+      } else {
+        // Append to current apes section
+        apes[currentSection] = apes[currentSection] ? `${apes[currentSection]}\n${trimmed}` : trimmed;
+      }
+    }
+
+    if (Object.keys(apes).length > 0) {
+      return {
+        title: title || (isEs ? 'Plan APES' : 'APES Plan'),
+        apes,
+      };
+    }
+  }
+
+  // Pattern 2: 'Aplicando / Applying X a/to goal/struggle: "TITLE" \n\n Plan: PLAN'
   const legacyPrefixMatch = raw.match(/^(?:Aplicando \/ Applying|Applying|Aplicando)\s+[A-Z]\s+(?:a|to)\s+(?:goal|struggle|meta|dificultad):\s*"([^"]+)"(?:\s*\n+Plan:\s*([\s\S]*))?$/i);
   if (legacyPrefixMatch) {
     return {
@@ -54,7 +110,7 @@ export function formatCleanGoal(text: string, isEs: boolean): { title: string; p
     };
   }
 
-  // Pattern 2: 'TITLE \n\n Action Plan: PLAN' or 'TITLE \n\n Plan de acción: PLAN'
+  // Pattern 3: 'TITLE \n\n Action Plan: PLAN' or 'TITLE \n\n Plan de acción: PLAN'
   const planMatch = raw.match(/^([\s\S]*?)\n+(?:Action Plan|Plan de acción|Plan):\s*([\s\S]*)$/i);
   if (planMatch && planMatch[1].trim()) {
     return {
@@ -63,7 +119,7 @@ export function formatCleanGoal(text: string, isEs: boolean): { title: string; p
     };
   }
 
-  // Pattern 3: NAME Profile
+  // Pattern 4: NAME Profile
   if (raw.startsWith('N - Necesidad') || raw.startsWith('N - Necessity') || raw.startsWith('N:')) {
     return {
       title: isEs ? 'Perfil de Motivación (NAME)' : 'Motivation Profile (NAME)',
