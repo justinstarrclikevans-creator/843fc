@@ -19,6 +19,7 @@ export default function CoachView() {
   const [pendingCoaches, setPendingCoaches] = useState<any[]>([]);
   const [checkins, setCheckins] = useState<any[]>([]);
   const [goals, setGoals] = useState<any[]>([]);
+  const [homeTasks, setHomeTasks] = useState<any[]>([]);
   
   // Interactive states
   const [selectedPlayerForFeedback, setSelectedPlayerForFeedback] = useState<any | null>(null);
@@ -59,6 +60,14 @@ export default function CoachView() {
       .order('created_at', { ascending: false });
     if (goalsError) console.error('Goals fetch error:', goalsError.message);
     if (goalsData) setGoals(goalsData);
+
+    // 5. Fetch home helping tasks
+    const { data: tasksData, error: tasksError } = await supabase
+      .from('player_home_tasks')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (tasksError) console.error('Home tasks fetch error:', tasksError);
+    if (tasksData) setHomeTasks(tasksData);
 
     if (profiles) {
       const rawPlayers = profiles.filter(p => p.role === 'player');
@@ -161,8 +170,10 @@ export default function CoachView() {
               <div className="text-gray-500 text-xs font-semibold uppercase tracking-wider mt-1">{isEs ? 'Metas en Progreso' : 'Active Goals Working'}</div>
             </div>
             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm text-center">
-              <div className="text-3xl font-black text-purple-600">{goals.filter(g => g.status === 'completed').length}</div>
-              <div className="text-gray-500 text-xs font-semibold uppercase tracking-wider mt-1">{isEs ? 'Metas Completadas' : 'Goals Completed'}</div>
+              <div className="text-3xl font-black text-purple-600">
+                {homeTasks.filter(t => t.completed).length}
+              </div>
+              <div className="text-gray-500 text-xs font-semibold uppercase tracking-wider mt-1">{isEs ? 'Tareas en Casa Hechas' : 'Home Chores Done'}</div>
             </div>
           </div>
 
@@ -194,11 +205,15 @@ export default function CoachView() {
                   const playerCheckinList = checkins.filter(ci => ci.player_id === player.id);
                   const latestCheckin = playerCheckinList[0];
                   const playerGoalList = goals.filter(g => g.player_id === player.id);
+                  const playerTaskList = homeTasks.filter(t => t.player_id === player.id);
                   
                   const pActiveGoals = playerGoalList.filter(g => (g.status || 'active') === 'active');
                   const pCompletedGoals = playerGoalList.filter(g => g.status === 'completed');
                   const pGaveUpGoals = playerGoalList.filter(g => g.status === 'gave_up');
                   
+                  const pTasksCompleted = playerTaskList.filter(t => t.completed).length;
+                  const pTasksVerified = playerTaskList.filter(t => t.parent_verified).length;
+
                   const isGoalsExpanded = expandedPlayerGoals[player.id];
 
                   return (
@@ -285,28 +300,29 @@ export default function CoachView() {
                           )}
                         </div>
 
-                        {/* Goals Summary Tracker */}
-                        <div className="min-w-[180px]">
-                          <div className="text-xs font-bold text-gray-700 mb-1.5">{isEs ? 'Metas:' : 'Goals Progress:'}</div>
-                          <div className="flex flex-wrap gap-1.5 text-xs">
+                        {/* Goals & Home Chores Summary Tracker */}
+                        <div className="min-w-[190px]">
+                          <div className="text-xs font-bold text-gray-700 mb-1.5">{isEs ? 'Metas y Ayuda en Casa:' : 'Goals & Home Splash:'}</div>
+                          <div className="flex flex-wrap gap-1.5 text-xs mb-1.5">
                             <span className="bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded font-semibold">
-                              🟡 {pActiveGoals.length} {isEs ? 'trabajando' : 'working'}
+                              🟡 {pActiveGoals.length} {isEs ? 'metas activas' : 'active goals'}
                             </span>
                             <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-semibold">
                               🟢 {pCompletedGoals.length} {isEs ? 'listas' : 'done'}
                             </span>
-                            {pGaveUpGoals.length > 0 && (
-                              <span className="bg-slate-50 text-slate-700 border border-slate-200 px-2 py-0.5 rounded font-semibold">
-                                ⚪ {pGaveUpGoals.length}
-                              </span>
-                            )}
                           </div>
+                          
+                          {/* Home chores badge for coach */}
+                          <div className="text-[11px] text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md font-medium">
+                            🏡 <strong>{pTasksCompleted}</strong> {isEs ? 'tareas en casa' : 'chores done'} ({pTasksVerified} 🌟)
+                          </div>
+
                           {playerGoalList.length > 0 && (
                             <button
                               onClick={() => togglePlayerGoals(player.id)}
                               className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-semibold underline block"
                             >
-                              {isGoalsExpanded ? (isEs ? '▲ Ocultar metas' : '▲ Hide goals') : (isEs ? `▼ Ver ${playerGoalList.length} metas` : `▼ View ${playerGoalList.length} goals`)}
+                              {isGoalsExpanded ? (isEs ? '▲ Ocultar detalles' : '▲ Hide details') : (isEs ? `▼ Ver ${playerGoalList.length} metas y tareas` : `▼ View ${playerGoalList.length} goals & chores`)}
                             </button>
                           )}
                         </div>
@@ -322,41 +338,63 @@ export default function CoachView() {
                         </div>
                       </div>
 
-                      {/* Expandable Goals Details for this player */}
+                      {/* Expandable Goals & Tasks Details for this player */}
                       {isGoalsExpanded && (
-                        <div className="mt-4 pt-4 border-t border-gray-100 space-y-2.5">
-                          <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500">
-                            {isEs ? `Metas registradas de ${player.full_name}:` : `Goals committed by ${player.full_name}:`}
-                          </h4>
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {playerGoalList.map(goal => {
-                              const s = (goal.status || 'active') as GoalStatus;
-                              const sCfg = GOAL_STATUSES[s] || GOAL_STATUSES.active;
-                              const clean = formatCleanGoal(goal.response, isEs);
+                        <div className="mt-4 pt-4 border-t border-gray-100 space-y-4">
+                          <div>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                              {isEs ? `Metas registradas de ${player.full_name}:` : `Goals committed by ${player.full_name}:`}
+                            </h4>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                              {playerGoalList.map(goal => {
+                                const s = (goal.status || 'active') as GoalStatus;
+                                const sCfg = GOAL_STATUSES[s] || GOAL_STATUSES.active;
+                                const clean = formatCleanGoal(goal.response, isEs);
 
-                              return (
-                                <div key={goal.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs">
-                                  <div className="flex justify-between items-center mb-1.5">
-                                    <span className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full border ${sCfg.badgeClass}`}>
-                                      <span className={`w-1.5 h-1.5 rounded-full ${sCfg.dotColor}`}></span>
-                                      {isEs ? sCfg.labelEs : sCfg.labelEn}
-                                    </span>
-                                    <span className="text-gray-400">{new Date(goal.created_at).toLocaleDateString()}</span>
-                                  </div>
-                                  <p className="font-semibold text-gray-800 whitespace-pre-wrap">{clean.title}</p>
-                                  {clean.plan && <p className="text-gray-600 mt-1 whitespace-pre-wrap">{clean.plan}</p>}
-                                  {clean.apes && (
-                                    <div className="mt-2 space-y-1 bg-white p-2 rounded text-[11px] border border-gray-150">
-                                      {clean.apes.a && <div><strong className="text-blue-700">A (Why):</strong> {clean.apes.a}</div>}
-                                      {clean.apes.p && <div><strong className="text-emerald-700">P (Pictures):</strong> {clean.apes.p}</div>}
-                                      {clean.apes.e && <div><strong className="text-orange-700">E (Engineering):</strong> {clean.apes.e}</div>}
-                                      {clean.apes.s && <div><strong className="text-purple-700">S (Splash):</strong> {clean.apes.s}</div>}
+                                return (
+                                  <div key={goal.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs">
+                                    <div className="flex justify-between items-center mb-1.5">
+                                      <span className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full border ${sCfg.badgeClass}`}>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${sCfg.dotColor}`}></span>
+                                        {isEs ? sCfg.labelEs : sCfg.labelEn}
+                                      </span>
+                                      <span className="text-gray-400">{new Date(goal.created_at).toLocaleDateString()}</span>
                                     </div>
-                                  )}
-                                </div>
-                              );
-                            })}
+                                    <p className="font-semibold text-gray-800 whitespace-pre-wrap">{clean.title}</p>
+                                    {clean.plan && <p className="text-gray-600 mt-1 whitespace-pre-wrap">{clean.plan}</p>}
+                                    {clean.apes && (
+                                      <div className="mt-2 space-y-1 bg-white p-2 rounded text-[11px] border border-gray-150">
+                                        {clean.apes.a && <div><strong className="text-blue-700">A (Why):</strong> {clean.apes.a}</div>}
+                                        {clean.apes.p && <div><strong className="text-emerald-700">P (Pictures):</strong> {clean.apes.p}</div>}
+                                        {clean.apes.e && <div><strong className="text-orange-700">E (Engineering):</strong> {clean.apes.e}</div>}
+                                        {clean.apes.s && <div><strong className="text-purple-700">S (Splash):</strong> {clean.apes.s}</div>}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
+
+                          {/* Home Chores List for this player */}
+                          {playerTaskList.length > 0 && (
+                            <div>
+                              <h4 className="text-xs font-bold uppercase tracking-wider text-purple-700 mb-2">
+                                {isEs ? `🏡 Tareas en Casa de ${player.full_name}:` : `🏡 Home Contributions by ${player.full_name}:`}
+                              </h4>
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {playerTaskList.map(task => (
+                                  <div key={task.id} className="bg-purple-50/50 border border-purple-100 rounded-lg p-2.5 text-xs flex items-center justify-between gap-2">
+                                    <span className="font-semibold text-gray-800">{task.task_name}</span>
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      {task.completed && <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded">✓ Done</span>}
+                                      {task.parent_verified && <span className="bg-purple-100 text-purple-800 text-[10px] font-bold px-1.5 py-0.5 rounded">🌟 Verified</span>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
 

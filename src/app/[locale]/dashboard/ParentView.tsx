@@ -12,9 +12,11 @@ export default function ParentView() {
   const [goals, setGoals] = useState<any[]>([]);
   const [checkins, setCheckins] = useState<any[]>([]);
   const [agreements, setAgreements] = useState<any[]>([]);
+  const [homeTasks, setHomeTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [parentNotes, setParentNotes] = useState<Record<string, string>>({});
   const [reviewingCheckinId, setReviewingCheckinId] = useState<string | null>(null);
+  const [verifyingTaskId, setVerifyingTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchParentData();
@@ -76,6 +78,15 @@ export default function ParentView() {
         .in('user_id', childIds);
       if (agrError) console.error("Error fetching children agreements:", agrError);
       if (agrData) setAgreements(agrData);
+
+      // 5. Fetch home helping tasks
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('player_home_tasks')
+        .select('*')
+        .in('player_id', childIds)
+        .order('created_at', { ascending: false });
+      if (tasksError) console.error("Error fetching home tasks:", tasksError);
+      if (tasksData) setHomeTasks(tasksData);
     }
 
     setLoading(false);
@@ -131,6 +142,35 @@ export default function ParentView() {
     alert(isEs ? "✅ Nota de padre/madre guardada y visible para entrenadores." : "✅ Parent note saved and visible to coaches.");
   };
 
+  const toggleVerifyHomeTask = async (taskId: string, currentStatus: boolean) => {
+    setVerifyingTaskId(taskId);
+    const newStatus = !currentStatus;
+
+    const { error } = await supabase
+      .from('player_home_tasks')
+      .update({
+        parent_verified: newStatus,
+        parent_verified_at: newStatus ? new Date().toISOString() : null,
+      })
+      .eq('id', taskId);
+
+    setVerifyingTaskId(null);
+
+    if (error) {
+      console.error("Error verifying task:", error);
+      alert(isEs ? "Error al verificar tarea: " + error.message : "Error verifying task: " + error.message);
+      return;
+    }
+
+    setHomeTasks(prev =>
+      prev.map(t =>
+        t.id === taskId
+          ? { ...t, parent_verified: newStatus, parent_verified_at: newStatus ? new Date().toISOString() : null }
+          : t
+      )
+    );
+  };
+
   const stressColor = (v?: number) => {
     if (v === undefined || v === null) return 'text-gray-400';
     return v >= 8 ? 'text-red-600 font-bold' : v >= 5 ? 'text-amber-600 font-medium' : 'text-emerald-600 font-medium';
@@ -143,8 +183,8 @@ export default function ParentView() {
         <h2 className="text-2xl font-bold text-gray-900">{isEs ? '👨‍👩‍👧 Panel de Padres' : '👨‍👩‍👧 Parent Dashboard'}</h2>
         <p className="text-sm text-gray-500 mt-1">
           {isEs 
-            ? 'Monitorea el bienestar diario, revisa la precisión de los registros de tus hijos y da seguimiento a sus metas en un solo lugar.' 
-            : 'Track daily wellness check-ins, review accuracy of your players\' reports, and communicate with coaches for all your linked players.'}
+            ? 'Monitorea el bienestar diario, revisa la precisión de los registros de tus hijos, apoya sus metas y verifica sus tareas en casa.' 
+            : 'Track daily wellness check-ins, review accuracy of your players\' reports, verify home contributions, and support their goals.'}
         </p>
       </div>
 
@@ -172,6 +212,7 @@ export default function ParentView() {
             const playerCheckins = checkins.filter(ci => ci.player_id === playerId);
             const latestCheckin = playerCheckins[0];
             const playerGoals = goals.filter(g => g.player_id === playerId);
+            const playerHomeTasks = homeTasks.filter(t => t.player_id === playerId);
             
             const pAgreements = agreements.filter(a => a.user_id === playerId);
             const hasLiability = pAgreements.some(a => a.agreement_type === 'liability_waiver');
@@ -378,6 +419,63 @@ export default function ParentView() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                {/* --- HELP AROUND THE HOUSE (PARENT VERIFICATION SECTION) --- */}
+                <div className="bg-blue-50/50 border border-blue-200 rounded-xl p-5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🏡</span>
+                      <h3 className="text-sm font-bold text-gray-900">
+                        {isEs ? 'Tareas y Ayuda en Casa (El Splash Familiar)' : 'Help Around the House (Family Splash)'}
+                      </h3>
+                    </div>
+                    <span className="text-xs text-blue-700 font-semibold">
+                      {playerHomeTasks.filter(t => t.parent_verified).length} / {playerHomeTasks.length} {isEs ? 'verificadas por ti' : 'verified by you'}
+                    </span>
+                  </div>
+
+                  {playerHomeTasks.length === 0 ? (
+                    <p className="text-xs text-gray-400 italic text-center py-4 bg-white rounded-lg border border-gray-100">
+                      {isEs ? 'Tu jugador aún no ha elegido tareas en casa para ayudar.' : 'Your player has not chosen any home helping chores yet.'}
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {playerHomeTasks.map(t => (
+                        <div
+                          key={t.id}
+                          className="bg-white border border-blue-100 rounded-lg p-3 flex items-center justify-between gap-3 text-xs shadow-2xs"
+                        >
+                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            <span className={t.completed ? 'text-emerald-600 font-bold' : 'text-gray-400'}>
+                              {t.completed ? '✓' : '○'}
+                            </span>
+                            <span className={`font-semibold truncate ${t.completed ? 'text-gray-800' : 'text-gray-600'}`}>
+                              {t.task_name}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              onClick={() => toggleVerifyHomeTask(t.id, t.parent_verified)}
+                              disabled={verifyingTaskId === t.id}
+                              className={`px-3 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 ${
+                                t.parent_verified
+                                  ? 'bg-purple-600 text-white shadow-2xs'
+                                  : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
+                              }`}
+                            >
+                              {t.parent_verified ? (
+                                <>🌟 {isEs ? '¡Verificado por ti!' : 'Verified by You!'}</>
+                              ) : (
+                                <>+ {isEs ? 'Confirmar Ayuda' : 'Verify Help'}</>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Direct Feedback & Support conversation for this child */}

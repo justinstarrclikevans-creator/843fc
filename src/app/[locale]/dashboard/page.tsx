@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation';
 import CoachView from './CoachView';
 import ParentView from './ParentView';
 import FeedbackThread from '@/components/FeedbackThread';
+import HomeContributions from '@/components/HomeContributions';
+import AIChatModal from '@/components/AIChatModal';
 import { formatCleanGoal, GOAL_STATUSES, GoalStatus } from '@/lib/goalUtils';
 
 export default function DashboardPage() {
@@ -306,6 +308,9 @@ export default function DashboardPage() {
             )}
           </div>
 
+          {/* Help Around the House Section */}
+          {userId && <HomeContributions playerId={userId} />}
+
           {userId && <FeedbackThread playerId={userId} />}
         </div>
       )}
@@ -317,6 +322,9 @@ export default function DashboardPage() {
       {role === 'coach' && (
         <CoachView />
       )}
+
+      {/* Floating AI Coach Synapse Assistant */}
+      <AIChatModal />
 
       {role === 'pending_coach' && (
         <div className="bg-yellow-50 p-6 rounded-lg border border-yellow-200 mt-6">
