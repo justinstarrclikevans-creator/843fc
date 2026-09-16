@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
 import { supabase } from '@/lib/supabaseClient';
+import { updateChoreStreak, awardXP } from '@/lib/gamification';
 
 interface HomeTask {
   id: string;
@@ -110,6 +111,11 @@ export default function HomeContributions({ playerId }: { playerId: string }) {
       console.error('Error updating task completion:', error);
       alert((isEs ? 'Error al actualizar tarea: ' : 'Error updating task: ') + error.message);
       return;
+    }
+
+    if (newStatus) {
+      await updateChoreStreak(playerId);
+      await awardXP(playerId, 'chore_done');
     }
 
     setTasks(prev =>

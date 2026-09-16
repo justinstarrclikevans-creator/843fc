@@ -9,8 +9,9 @@ import TeamAnalytics from '@/components/coach/TeamAnalytics';
 import PlayerProfileCard from '@/components/coach/PlayerProfileCard';
 import TeamRadarChart from '@/components/coach/TeamRadarChart';
 import WeeklyReport from '@/components/coach/WeeklyReport';
+import PracticeReportsTab from '@/components/coach/PracticeReportsTab';
 
-type CoachTab = 'analytics' | 'roster' | 'goals_tracker' | 'management';
+type CoachTab = 'analytics' | 'roster' | 'goals_tracker' | 'practice_reports' | 'management';
 
 export default function CoachView() {
   const locale = useLocale();
@@ -36,6 +37,7 @@ export default function CoachView() {
   // Management form state
   const [selectedPlayer, setSelectedPlayer] = useState('');
   const [selectedParent, setSelectedParent] = useState('');
+  const [coachId, setCoachId] = useState('');
 
   useEffect(() => {
     fetchCoachData();
@@ -43,6 +45,11 @@ export default function CoachView() {
 
   async function fetchCoachData() {
     setLoading(true);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      setCoachId(session.user.id);
+    }
 
     const { data: profiles, error: profError } = await supabase.from('profiles').select('*');
     if (profError) console.error('Profiles fetch error:', profError.message);
@@ -136,6 +143,7 @@ export default function CoachView() {
     { id: 'analytics', label: isEs ? '📊 Análisis del Equipo' : '📊 Team Analytics' },
     { id: 'roster', label: isEs ? '👥 Jugadores' : '👥 Player Roster' },
     { id: 'goals_tracker', label: isEs ? '🎯 Metas del Equipo' : '🎯 Team Goals' },
+    { id: 'practice_reports', label: isEs ? '📝 Reportes' : '📝 Practice Reports' },
     { id: 'management', label: isEs ? '⚙️ Gestión' : '⚙️ Management' },
   ];
 
@@ -345,7 +353,12 @@ export default function CoachView() {
             </div>
           )}
 
-          {/* ═══ TAB 4: TEAM MANAGEMENT ═══ */}
+          {/* ═══ TAB 4: PRACTICE REPORTS ═══ */}
+          {activeTab === 'practice_reports' && (
+            <PracticeReportsTab players={players} coachId={coachId} />
+          )}
+
+          {/* ═══ TAB 5: TEAM MANAGEMENT ═══ */}
           {activeTab === 'management' && (
             <div className="space-y-6">
               {/* Link Parent to Player */}

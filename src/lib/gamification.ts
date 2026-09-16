@@ -16,16 +16,20 @@ export const LEVEL_THRESHOLDS = [
 
 // ─── XP REWARDS ──────────────────────────────────────────────────────
 export const XP_REWARDS: Record<string, { xp: number; labelEn: string; labelEs: string }> = {
-  checkin:        { xp: 15,  labelEn: 'Daily check-in',           labelEs: 'Revisión diaria' },
-  goal_created:   { xp: 10,  labelEn: 'New goal created',         labelEs: 'Nueva meta creada' },
-  goal_completed: { xp: 30,  labelEn: 'Goal completed!',          labelEs: '¡Meta completada!' },
-  apes_applied:   { xp: 20,  labelEn: 'APES plan applied',        labelEs: 'Plan APES aplicado' },
-  chore_done:     { xp: 5,   labelEn: 'Home chore completed',     labelEs: 'Tarea del hogar completada' },
-  chore_verified: { xp: 10,  labelEn: 'Chore verified by parent', labelEs: 'Tarea verificada por padre/madre' },
-  streak_3:       { xp: 10,  labelEn: '3-day streak bonus!',      labelEs: '¡Bonus de racha de 3 días!' },
-  streak_7:       { xp: 25,  labelEn: '7-day streak bonus!',      labelEs: '¡Bonus de racha de 7 días!' },
-  streak_14:      { xp: 50,  labelEn: '14-day streak bonus!',     labelEs: '¡Bonus de racha de 14 días!' },
-  streak_30:      { xp: 100, labelEn: '30-day streak bonus!',     labelEs: '¡Bonus de racha de 30 días!' },
+  checkin:            { xp: 15,  labelEn: 'Daily check-in',               labelEs: 'Revisión diaria' },
+  goal_created:       { xp: 10,  labelEn: 'New goal created',             labelEs: 'Nueva meta creada' },
+  goal_completed:     { xp: 30,  labelEn: 'Goal completed!',              labelEs: '¡Meta completada!' },
+  apes_applied:       { xp: 20,  labelEn: 'APES plan applied',            labelEs: 'Plan APES aplicado' },
+  chore_done:         { xp: 5,   labelEn: 'Home chore completed',         labelEs: 'Tarea del hogar completada' },
+  chore_verified:     { xp: 10,  labelEn: 'Chore verified by parent',     labelEs: 'Tarea verificada por padre/madre' },
+  streak_3:           { xp: 10,  labelEn: '3-day streak bonus!',          labelEs: '¡Bonus de racha de 3 días!' },
+  streak_7:           { xp: 25,  labelEn: '7-day streak bonus!',          labelEs: '¡Bonus de racha de 7 días!' },
+  streak_14:          { xp: 50,  labelEn: '14-day streak bonus!',         labelEs: '¡Bonus de racha de 14 días!' },
+  streak_30:          { xp: 100, labelEn: '30-day streak bonus!',         labelEs: '¡Bonus de racha de 30 días!' },
+  chore_streak_3:     { xp: 15,  labelEn: '3-day chore streak!',          labelEs: '¡Racha de 3 días en tareas!' },
+  chore_streak_7:     { xp: 30,  labelEn: '7-day chore streak!',          labelEs: '¡Racha de 7 días en tareas!' },
+  practice_excellent: { xp: 25,  labelEn: 'Excellent practice rating!',   labelEs: '¡Excelente calificación en práctica!' },
+  practice_good:      { xp: 10,  labelEn: 'Good practice rating',         labelEs: 'Buena calificación en práctica' },
 };
 
 // ─── BADGES ──────────────────────────────────────────────────────────
@@ -44,12 +48,17 @@ export interface PlayerStats {
   level: number;
   current_streak: number;
   longest_streak: number;
+  last_checkin_date?: string;
   goals_completed: number;
   chores_completed: number;
   chores_verified: number;
   apes_applied: number;
   total_checkins: number;
   badges_earned: string[];
+  current_chore_streak: number;
+  longest_chore_streak: number;
+  last_chore_date?: string;
+  excellent_practices: number;
 }
 
 export const BADGES: Badge[] = [
@@ -151,6 +160,42 @@ export const BADGES: Badge[] = [
     descEn: 'Get 5 chores verified by a parent',
     descEs: 'Recibe la verificación de un padre en 5 tareas',
     check: (s) => s.chores_verified >= 5,
+  },
+  {
+    id: 'chore_champion',
+    icon: '🧹',
+    nameEn: 'Chore Champion',
+    nameEs: 'Campeón de Tareas',
+    descEn: 'Reach a 3-day chore streak',
+    descEs: 'Alcanza una racha de tareas de 3 días',
+    check: (s) => s.longest_chore_streak >= 3,
+  },
+  {
+    id: 'house_master',
+    icon: '🏰',
+    nameEn: 'House Master',
+    nameEs: 'Amo de la Casa',
+    descEn: 'Reach a 7-day chore streak',
+    descEs: 'Alcanza una racha de tareas de 7 días',
+    check: (s) => s.longest_chore_streak >= 7,
+  },
+  {
+    id: 'training_beast',
+    icon: '🏋️',
+    nameEn: 'Training Beast',
+    nameEs: 'Bestia de Entrenamiento',
+    descEn: 'Earn your first Excellent practice report',
+    descEs: 'Gana tu primer reporte Excelente de práctica',
+    check: (s) => s.excellent_practices >= 1,
+  },
+  {
+    id: 'practice_pro',
+    icon: '🏅',
+    nameEn: 'Practice Pro',
+    nameEs: 'Pro de la Práctica',
+    descEn: 'Earn 5 Excellent practice reports',
+    descEs: 'Gana 5 reportes Excelentes de práctica',
+    check: (s) => s.excellent_practices >= 5,
   },
   {
     id: 'diamond_mind',
@@ -258,6 +303,9 @@ export async function awardXP(
     apes_applied: statsRow?.apes_applied ?? 0,
     total_checkins: statsRow?.total_checkins ?? 0,
     badges_earned: currentBadges,
+    current_chore_streak: statsRow?.current_chore_streak ?? 0,
+    longest_chore_streak: statsRow?.longest_chore_streak ?? 0,
+    excellent_practices: statsRow?.excellent_practices ?? 0,
   };
 
   const newBadges = checkNewBadges(stats);
@@ -363,6 +411,9 @@ export async function fetchPlayerStats(playerId: string): Promise<PlayerStats> {
       apes_applied: 0,
       total_checkins: 0,
       badges_earned: [],
+      current_chore_streak: 0,
+      longest_chore_streak: 0,
+      excellent_practices: 0,
     };
   }
 
@@ -377,5 +428,99 @@ export async function fetchPlayerStats(playerId: string): Promise<PlayerStats> {
     apes_applied: data.apes_applied ?? 0,
     total_checkins: data.total_checkins ?? 0,
     badges_earned: data.badges_earned ?? [],
+    current_chore_streak: data.current_chore_streak ?? 0,
+    longest_chore_streak: data.longest_chore_streak ?? 0,
+    excellent_practices: data.excellent_practices ?? 0,
   };
+}
+
+export async function updateChoreStreak(playerId: string): Promise<{
+  currentStreak: number;
+  streakBonusAwarded: string | null;
+}> {
+  const today = new Date().toISOString().split('T')[0];
+
+  const { data: statsRow } = await supabase
+    .from('player_stats')
+    .select('*')
+    .eq('player_id', playerId)
+    .single();
+
+  const lastDate = statsRow?.last_chore_date;
+  let currentStreak = statsRow?.current_chore_streak ?? 0;
+  let longestStreak = statsRow?.longest_chore_streak ?? 0;
+
+  if (lastDate === today) {
+    return { currentStreak, streakBonusAwarded: null };
+  }
+
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+  if (lastDate === yesterdayStr) {
+    currentStreak += 1;
+  } else {
+    currentStreak = 1;
+  }
+
+  if (currentStreak > longestStreak) {
+    longestStreak = currentStreak;
+  }
+
+  await supabase.from('player_stats').upsert({
+    player_id: playerId,
+    current_chore_streak: currentStreak,
+    longest_chore_streak: longestStreak,
+    last_chore_date: today,
+  }, { onConflict: 'player_id' });
+
+  let streakBonusAwarded: string | null = null;
+  if (currentStreak === 7) {
+    await awardXP(playerId, 'chore_streak_7');
+    streakBonusAwarded = 'chore_streak_7';
+  } else if (currentStreak === 3) {
+    await awardXP(playerId, 'chore_streak_3');
+    streakBonusAwarded = 'chore_streak_3';
+  }
+
+  return { currentStreak, streakBonusAwarded };
+}
+
+export async function submitPracticeReport(
+  playerId: string,
+  coachId: string,
+  rating: number,
+  notes: string
+): Promise<{ xpAwarded: number; newBadges: Badge[] }> {
+  // 1. Insert report
+  await supabase.from('practice_reports').insert({
+    player_id: playerId,
+    coach_id: coachId,
+    rating,
+    notes,
+  });
+
+  // 2. Increment stats if rating is 5 (Excellent)
+  if (rating === 5) {
+    const { data: stats } = await supabase
+      .from('player_stats')
+      .select('excellent_practices')
+      .eq('player_id', playerId)
+      .single();
+      
+    await supabase.from('player_stats').upsert({
+      player_id: playerId,
+      excellent_practices: (stats?.excellent_practices || 0) + 1,
+    }, { onConflict: 'player_id' });
+  }
+
+  // 3. Award XP
+  const eventType = rating === 5 ? 'practice_excellent' : (rating >= 3 ? 'practice_good' : null);
+  if (eventType) {
+    const res = await awardXP(playerId, eventType);
+    return { xpAwarded: res.xpAwarded, newBadges: res.newBadges };
+  }
+  
+  return { xpAwarded: 0, newBadges: [] };
 }

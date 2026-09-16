@@ -55,11 +55,21 @@ export default function PlayerHero({ playerName, stats }: PlayerHeroProps) {
             </div>
           </div>
           
-          <div className="flex items-center justify-center sm:justify-start gap-2 mb-6">
-            <Flame className={`w-5 h-5 ${stats.current_streak >= 3 ? 'text-orange-500 animate-pulse' : 'text-slate-400'}`} />
-            <span className={`text-sm font-medium ${stats.current_streak > 0 ? 'text-orange-600' : 'text-slate-500'}`}>
-              {streakText}
-            </span>
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 mb-6">
+            <div className="flex items-center gap-1.5">
+              <Flame className={`w-5 h-5 ${stats.current_streak >= 3 ? 'text-orange-500 animate-pulse' : 'text-slate-400'}`} />
+              <span className={`text-sm font-bold ${stats.current_streak > 0 ? 'text-orange-600' : 'text-slate-500'}`}>
+                {streakText}
+              </span>
+            </div>
+            {stats.current_chore_streak > 0 && (
+              <div className="flex items-center gap-1.5 bg-blue-50 px-2 py-1 rounded-md border border-blue-100">
+                <span className="text-lg">🧹</span>
+                <span className="text-xs font-bold text-blue-700">
+                  {stats.current_chore_streak} {isEs ? 'días tareas' : 'day chores'}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-3">
