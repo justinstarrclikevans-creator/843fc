@@ -28,7 +28,16 @@ export default function SignupPage() {
     });
 
     if (authError) {
-      setError(authError.message);
+      const msg = authError.message || '';
+      if (msg.toLowerCase().includes('load failed') || msg.toLowerCase().includes('failed to fetch')) {
+        setError(
+          isEs
+            ? 'Error de conexión (Load failed). Es muy probable que tu proyecto en Supabase esté en PAUSA por inactividad. Inicia sesión en supabase.com y haz clic en "Restore Project".'
+            : 'Connection error (Load failed). Your Supabase project is likely PAUSED due to inactivity. Please log into supabase.com and click "Restore Project".'
+        );
+      } else {
+        setError(msg);
+      }
       setLoading(false);
       return;
     }

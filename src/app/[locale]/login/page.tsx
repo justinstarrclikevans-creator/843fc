@@ -25,7 +25,16 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError(error.message);
+      const msg = error.message || '';
+      if (msg.toLowerCase().includes('load failed') || msg.toLowerCase().includes('failed to fetch')) {
+        setError(
+          isEs
+            ? 'Error de conexión (Load failed). Es muy probable que tu proyecto en Supabase esté en PAUSA por inactividad. Inicia sesión en supabase.com y haz clic en "Restore Project".'
+            : 'Connection error (Load failed). Your Supabase project is likely PAUSED due to inactivity. Please log into supabase.com and click "Restore Project".'
+        );
+      } else {
+        setError(msg);
+      }
       setLoading(false);
     } else {
       router.push(`/${locale}/dashboard`);
