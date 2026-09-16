@@ -3,6 +3,21 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Gamification XP bar */
+  --xp-bar-from: #3b82f6;
+  --xp-bar-to: #8b5cf6;
+
+  /* Level ring gradients */
+  --level-glow: 0 0 12px rgba(59, 130, 246, 0.3);
+
+  /* Badge glow */
+  --badge-glow: 0 0 16px rgba(245, 158, 11, 0.35);
+
+  /* Coach portal accents */
+  --coach-bg: #f8fafc;
+  --coach-card: #ffffff;
+  --coach-accent: #1e293b;
 }
 
 @theme inline {
@@ -12,9 +27,72 @@
   --font-mono: var(--font-geist-mono);
 }
 
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* ─── Gamification Animations ─────────────────────────────────── */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(245, 158, 11, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(245, 158, 11, 0.5); }
+}
+
+@keyframes streak-flame {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+}
+
+@keyframes confetti-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-streak-flame {
+  animation: streak-flame 1s ease-in-out infinite;
+}
+
+.animate-confetti-pop {
+  animation: confetti-pop 0.4s ease-out forwards;
+}
+
+/* XP Progress Bar shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.xp-bar-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--xp-bar-from) 0%,
+    var(--xp-bar-to) 40%,
+    #c4b5fd 50%,
+    var(--xp-bar-to) 60%,
+    var(--xp-bar-from) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s linear infinite;
+}
+
+/* Badge locked overlay */
+.badge-locked {
+  filter: grayscale(1);
+  opacity: 0.3;
+}
+
+.badge-earned {
+  box-shadow: var(--badge-glow);
+}
+
+/* Coach portal data-dense typography */
+.coach-mono {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }

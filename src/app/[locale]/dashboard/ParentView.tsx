@@ -1,8 +1,20 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useLocale } from 'next-intl';
 import { supabase } from '@/lib/supabaseClient';
 import FeedbackThread from '@/components/FeedbackThread';
 import { formatCleanGoal, GOAL_STATUSES, GoalStatus } from '@/lib/goalUtils';
+import { fetchPlayerStats, PlayerStats, calculateLevel, BADGES } from '@/lib/gamification';
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid
+} from 'recharts';
 
 export default function ParentView() {
   const locale = useLocale();
@@ -13,6 +25,8 @@ export default function ParentView() {
   const [checkins, setCheckins] = useState<any[]>([]);
   const [agreements, setAgreements] = useState<any[]>([]);
   const [homeTasks, setHomeTasks] = useState<any[]>([]);
+  const [playerStats, setPlayerStats] = useState<Record<string, PlayerStats>>({});
+  
   const [loading, setLoading] = useState(true);
   const [parentNotes, setParentNotes] = useState<Record<string, string>>({});
   const [reviewingCheckinId, setReviewingCheckinId] = useState<string | null>(null);
@@ -45,7 +59,7 @@ export default function ParentView() {
       setChildren(childrenData);
       const childIds = childrenData.map(c => c.player_id);
 
-      // 2. Fetch goals for linked children
+      // 2. Fetch goals
       const { data: goalsData, error: goalsError } = await supabase
         .from('synapse_exercises')
         .select('*')
@@ -54,7 +68,7 @@ export default function ParentView() {
       if (goalsError) console.error("Error fetching children goals:", goalsError);
       if (goalsData) setGoals(goalsData);
 
-      // 3. Fetch checkins for linked children
+      // 3. Fetch checkins
       const { data: ciData, error: ciError } = await supabase
         .from('daily_checkins')
         .select('*')
@@ -63,7 +77,6 @@ export default function ParentView() {
       if (ciError) console.error("Error fetching children checkins:", ciError);
       if (ciData) {
         setCheckins(ciData);
-        // Pre-populate notes map
         const notesMap: Record<string, string> = {};
         ciData.forEach(ci => {
           if (ci.parent_notes) notesMap[ci.id] = ci.parent_notes;
@@ -71,7 +84,7 @@ export default function ParentView() {
         setParentNotes(notesMap);
       }
 
-      // 4. Fetch agreements for linked children
+      // 4. Fetch agreements
       const { data: agrData, error: agrError } = await supabase
         .from('agreements')
         .select('*')
@@ -87,6 +100,20 @@ export default function ParentView() {
         .order('created_at', { ascending: false });
       if (tasksError) console.error("Error fetching home tasks:", tasksError);
       if (tasksData) setHomeTasks(tasksData);
+
+      // 6. Fetch player gamification stats
+      const { data: statsData } = await supabase
+        .from('player_stats')
+        .select('*')
+        .in('player_id', childIds);
+        
+      if (statsData) {
+        const statsMap: Record<string, PlayerStats> = {};
+        statsData.forEach(s => {
+          statsMap[s.player_id] = s;
+        });
+        setPlayerStats(statsMap);
+      }
     }
 
     setLoading(false);
@@ -133,13 +160,12 @@ export default function ParentView() {
     setReviewingCheckinId(null);
 
     if (error) {
-      console.error("Error saving parent note:", error);
       alert(isEs ? "Error al guardar la nota: " + error.message : "Error saving note: " + error.message);
       return;
     }
 
     setCheckins(prev => prev.map(ci => ci.id === checkinId ? { ...ci, parent_notes: note } : ci));
-    alert(isEs ? "✅ Nota de padre/madre guardada y visible para entrenadores." : "✅ Parent note saved and visible to coaches.");
+    alert(isEs ? "✅ Nota guardada." : "✅ Note saved.");
   };
 
   const toggleVerifyHomeTask = async (taskId: string, currentStatus: boolean) => {
@@ -157,7 +183,6 @@ export default function ParentView() {
     setVerifyingTaskId(null);
 
     if (error) {
-      console.error("Error verifying task:", error);
       alert(isEs ? "Error al verificar tarea: " + error.message : "Error verifying task: " + error.message);
       return;
     }
@@ -172,39 +197,48 @@ export default function ParentView() {
   };
 
   const stressColor = (v?: number) => {
-    if (v === undefined || v === null) return 'text-gray-400';
+    if (v === undefined || v === null) return 'text-slate-400';
     return v >= 8 ? 'text-red-600 font-bold' : v >= 5 ? 'text-amber-600 font-medium' : 'text-emerald-600 font-medium';
+  };
+
+  const generateTrendData = (playerCheckins: any[]) => {
+    // Sort chronological (oldest to newest) for chart, take last 7 days
+    const last7 = [...playerCheckins].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(-7);
+    return last7.map(ci => ({
+      date: new Date(ci.date).toLocaleDateString(isEs ? 'es-ES' : 'en-US', { weekday: 'short' }),
+      stress: ci.stress_level || 0,
+      sleep: Number(ci.sleep_hours) || 0,
+    }));
   };
 
   return (
     <div className="space-y-6 mt-6">
       {/* Header */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h2 className="text-2xl font-bold text-gray-900">{isEs ? '👨‍👩‍👧 Panel de Padres' : '👨‍👩‍👧 Parent Dashboard'}</h2>
-        <p className="text-sm text-gray-500 mt-1">
+      <div className="bg-slate-800 p-6 rounded-2xl shadow-lg border border-slate-700">
+        <h2 className="text-2xl font-bold text-white tracking-tight">{isEs ? '👨‍👩‍👧 Panel de Padres' : '👨‍👩‍👧 Parent Dashboard'}</h2>
+        <p className="text-sm text-slate-300 mt-1">
           {isEs 
-            ? 'Monitorea el bienestar diario, revisa la precisión de los registros de tus hijos, apoya sus metas y verifica sus tareas en casa.' 
-            : 'Track daily wellness check-ins, review accuracy of your players\' reports, verify home contributions, and support their goals.'}
+            ? 'Supervisa el bienestar de tus hijos, celebra sus logros y verifica sus contribuciones en el hogar.' 
+            : 'Track your children\'s wellness, celebrate their gamification progress, and verify home contributions.'}
         </p>
       </div>
 
       {loading ? (
-        <div className="bg-white p-12 text-center rounded-xl border border-gray-200">
-          <p className="text-gray-400 text-sm">{isEs ? 'Cargando jugadores vinculados...' : 'Loading linked players...'}</p>
+        <div className="bg-white p-12 text-center rounded-xl border border-slate-200">
+          <p className="text-slate-400 text-sm">{isEs ? 'Cargando jugadores vinculados...' : 'Loading linked players...'}</p>
         </div>
       ) : children.length === 0 ? (
-        <div className="bg-white p-12 text-center rounded-xl border border-dashed border-gray-300">
-          <p className="text-gray-600 font-medium mb-1">
-            {isEs ? 'No hay jugadores vinculados a tu cuenta todavía.' : 'No players linked to your account yet.'}
+        <div className="bg-white p-12 text-center rounded-xl border border-dashed border-slate-300">
+          <p className="text-slate-600 font-medium mb-1">
+            {isEs ? 'No hay jugadores vinculados a tu cuenta.' : 'No players linked to your account yet.'}
           </p>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-slate-400">
             {isEs 
-              ? 'Pide a tu entrenador que vincule tu cuenta a tu(s) hijo(s) desde la sección de Gestión del Equipo.' 
-              : 'Ask your coach to link your account to your player(s) in the Team Management tab.'}
+              ? 'Pide a tu entrenador que vincule tu cuenta.' 
+              : 'Ask your coach to link your account to your player(s).'}
           </p>
         </div>
       ) : (
-        /* Render ALL linked children simultaneously */
         <div className="space-y-8">
           {children.map(child => {
             const playerId = child.player_id;
@@ -212,7 +246,8 @@ export default function ParentView() {
             const playerCheckins = checkins.filter(ci => ci.player_id === playerId);
             const latestCheckin = playerCheckins[0];
             const playerGoals = goals.filter(g => g.player_id === playerId);
-            const playerHomeTasks = homeTasks.filter(t => t.player_id === playerId);
+            const playerTasks = homeTasks.filter(t => t.player_id === playerId);
+            const stats = playerStats[playerId];
             
             const pAgreements = agreements.filter(a => a.user_id === playerId);
             const hasLiability = pAgreements.some(a => a.agreement_type === 'liability_waiver');
@@ -220,266 +255,224 @@ export default function ParentView() {
 
             const activeGoals = playerGoals.filter(g => (g.status || 'active') === 'active');
             const completedGoals = playerGoals.filter(g => g.status === 'completed');
-            const gaveUpGoals = playerGoals.filter(g => g.status === 'gave_up');
+
+            const levelInfo = stats ? calculateLevel(stats.total_xp) : null;
+            const trendData = generateTrendData(playerCheckins);
 
             return (
-              <div key={playerId} className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-6">
-                {/* Child Header Card */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-gray-100 pb-4">
-                  <div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl font-black text-gray-900">{playerName}</span>
-                      <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2.5 py-0.5 rounded-full">
-                        {isEs ? 'Jugador Vinculado' : 'Linked Player'}
-                      </span>
+              <div key={playerId} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-6">
+                
+                {/* Child Header Row */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div className="flex items-center gap-4">
+                    {levelInfo && (
+                      <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${levelInfo.color} flex items-center justify-center text-white font-black text-xl shadow-lg ring-4 ${levelInfo.ring} ring-opacity-20`}>
+                        {levelInfo.level}
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-900 flex items-center gap-2">
+                        {playerName}
+                        <span className="text-[10px] uppercase tracking-wider bg-slate-100 text-slate-500 font-bold px-2 py-0.5 rounded-full">
+                          {isEs ? 'Hijo Vinculado' : 'Linked Child'}
+                        </span>
+                      </h3>
+                      {levelInfo && (
+                        <div className="flex items-center gap-2 mt-0.5 text-sm">
+                          <span className="font-bold text-slate-700">{isEs ? levelInfo.titleEs : levelInfo.title}</span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-amber-600 font-bold">{stats?.total_xp} XP</span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-orange-500 font-bold">🔥 {stats?.current_streak} {isEs ? 'días' : 'days'}</span>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-xs text-gray-400 mt-0.5">{child.profiles?.email}</p>
                   </div>
 
-                  {/* Waivers status */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex gap-2">
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${hasLiability ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'}`}>
-                      {hasLiability ? (isEs ? '✓ Renuncia firmada' : '✓ Waiver signed') : (isEs ? '✗ Falta renuncia' : '✗ Waiver missing')}
+                      {hasLiability ? '✓ Waiver' : '✗ Waiver'}
                     </span>
                     <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${hasBehavior ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-700'}`}>
-                      {hasBehavior ? (isEs ? '✓ Contrato firmado' : '✓ Contract signed') : (isEs ? '✗ Falta contrato' : '✗ Contract missing')}
+                      {hasBehavior ? '✓ Contract' : '✗ Contract'}
                     </span>
                   </div>
                 </div>
 
-                {/* Metrics & Goals Grid */}
-                <div className="grid gap-6 lg:grid-cols-2">
-                  {/* Latest Check-in Summary + Parent Accuracy Review */}
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-sm font-bold text-gray-900">{isEs ? '📊 Última Revisión Diaria (TLCs)' : '📊 Latest Daily TLC Check-in'}</h3>
-                      {latestCheckin ? (
-                        <span className="text-xs text-gray-500 font-medium">{new Date(latestCheckin.date).toLocaleDateString()}</span>
-                      ) : (
-                        <span className="text-xs text-gray-400 italic">{isEs ? 'Sin registros' : 'No check-ins yet'}</span>
-                      )}
-                    </div>
+                <div className="grid lg:grid-cols-3 gap-6">
+                  
+                  {/* Left Col: Checkin & Trend */}
+                  <div className="lg:col-span-2 space-y-4">
+                    <h4 className="font-bold text-slate-800 flex items-center gap-2">
+                      📈 {isEs ? 'Tendencia Semanal' : 'Weekly Trend'}
+                    </h4>
+                    
+                    {trendData.length > 0 ? (
+                      <div className="h-[200px] w-full bg-slate-50 rounded-xl border border-slate-100 p-4">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={trendData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                            <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748b' }} dy={10} />
+                            <YAxis yAxisId="left" orientation="left" stroke="#3b82f6" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                            <YAxis yAxisId="right" orientation="right" stroke="#ef4444" axisLine={false} tickLine={false} tick={{ fontSize: 12 }} />
+                            <Tooltip 
+                              contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                              labelStyle={{ color: '#0f172a', fontWeight: 'bold' }}
+                            />
+                            <Area yAxisId="left" type="monotone" dataKey="sleep" name={isEs ? 'Horas de Sueño' : 'Sleep (hrs)'} stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.1} strokeWidth={2} />
+                            <Area yAxisId="right" type="monotone" dataKey="stress" name={isEs ? 'Nivel de Estrés' : 'Stress Level'} stroke="#ef4444" fill="#ef4444" fillOpacity={0.1} strokeWidth={2} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="h-[200px] flex items-center justify-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        <p className="text-slate-400 text-sm">{isEs ? 'No hay suficientes datos.' : 'Not enough data yet.'}</p>
+                      </div>
+                    )}
 
                     {latestCheckin ? (
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                          <div className="bg-white rounded-lg p-2 border border-gray-100 shadow-xs">
-                            <div className="text-[11px] text-gray-400 font-medium">{isEs ? 'Sueño' : 'Sleep'}</div>
-                            <div className="font-bold text-gray-800 text-sm mt-0.5">{latestCheckin.sleep_hours}h</div>
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">
+                          {isEs ? 'Revisión Diaria Reciente' : 'Latest Check-in'} ({new Date(latestCheckin.date).toLocaleDateString()})
+                        </h5>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                          <div className="bg-white p-3 rounded-lg border border-slate-100 text-center shadow-sm">
+                            <div className="text-xl font-bold text-blue-600">{latestCheckin.sleep_hours || '-'}h</div>
+                            <div className="text-[10px] text-slate-500 uppercase">{isEs ? 'Sueño' : 'Sleep'}</div>
                           </div>
-                          <div className="bg-white rounded-lg p-2 border border-gray-100 shadow-xs">
-                            <div className="text-[11px] text-gray-400 font-medium">{isEs ? 'Estrés' : 'Stress'}</div>
-                            <div className={`font-bold text-sm mt-0.5 ${stressColor(latestCheckin.stress_level)}`}>{latestCheckin.stress_level}/10</div>
+                          <div className="bg-white p-3 rounded-lg border border-slate-100 text-center shadow-sm">
+                            <div className={`text-xl ${stressColor(latestCheckin.stress_level)}`}>{latestCheckin.stress_level || '-'}</div>
+                            <div className="text-[10px] text-slate-500 uppercase">{isEs ? 'Estrés' : 'Stress'}</div>
                           </div>
-                          <div className="bg-white rounded-lg p-2 border border-gray-100 shadow-xs">
-                            <div className="text-[11px] text-gray-400 font-medium">{isEs ? 'Ánimo' : 'Mood'}</div>
-                            <div className="font-bold text-gray-800 text-sm mt-0.5">{latestCheckin.home_life_mood}/10</div>
+                          <div className="bg-white p-3 rounded-lg border border-slate-100 text-center shadow-sm">
+                            <div className="text-xl font-bold text-emerald-600">{latestCheckin.home_life_mood || '-'}</div>
+                            <div className="text-[10px] text-slate-500 uppercase">{isEs ? 'Estado de ánimo' : 'Mood'}</div>
                           </div>
-                          <div className="bg-white rounded-lg p-2 border border-gray-100 shadow-xs">
-                            <div className="text-[11px] text-gray-400 font-medium">{isEs ? 'Rend.' : 'Perf.'}</div>
-                            <div className="font-bold text-gray-800 text-sm mt-0.5">{latestCheckin.practice_performance}/10</div>
+                          <div className="bg-white p-3 rounded-lg border border-slate-100 text-center shadow-sm">
+                            <div className="text-xl font-bold text-amber-600">{latestCheckin.practice_performance || '-'}</div>
+                            <div className="text-[10px] text-slate-500 uppercase">{isEs ? 'Rendimiento' : 'Perf'}</div>
                           </div>
                         </div>
 
-                        <div className="text-xs text-gray-500 bg-white rounded-lg p-2.5 border border-gray-100 flex justify-between">
-                          <span>{isEs ? '¿Desayunó?' : 'Ate breakfast:'} <strong className="text-gray-800">{latestCheckin.nutrition_breakfast ? (isEs ? 'Sí' : 'Yes') : (isEs ? 'No' : 'No')}</strong></span>
-                          <span>{isEs ? 'Hidratación:' : 'Hydration:'} <strong className="text-gray-800 capitalize">{latestCheckin.hydration_rating || 'Good'}</strong></span>
-                        </div>
-
-                        {/* --- PARENT ACCURACY FEEDBACK & NOTES SECTION --- */}
-                        <div className="mt-3 pt-3 border-t border-gray-200 bg-white rounded-lg p-3 border border-gray-100">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs font-bold text-gray-800">
-                                {isEs ? '¿Es precisa esta información?' : 'Is this check-in accurate?'}
-                              </span>
-                              {latestCheckin.parent_feedback === 'accurate' && (
-                                <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-emerald-300">
-                                  ✅ {isEs ? 'Confirmado Exacto' : 'Verified Accurate'}
-                                </span>
-                              )}
-                              {latestCheckin.parent_feedback === 'inaccurate' && (
-                                <span className="bg-red-100 text-red-800 text-[10px] font-bold px-2 py-0.5 rounded-full border border-red-300">
-                                  ⚠️ {isEs ? 'Inexacto' : 'Flagged Inaccurate'}
-                                </span>
-                              )}
-                              {(!latestCheckin.parent_feedback || latestCheckin.parent_feedback === 'unreviewed') && (
-                                <span className="bg-gray-100 text-gray-600 text-[10px] font-medium px-2 py-0.5 rounded-full">
-                                  ⏳ {isEs ? 'Sin verificar' : 'Unreviewed'}
-                                </span>
-                              )}
-                            </div>
-
-                            {/* Quick feedback buttons */}
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => handleParentCheckinFeedback(latestCheckin.id, 'accurate')}
-                                disabled={reviewingCheckinId === latestCheckin.id}
-                                className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition disabled:opacity-50 ${latestCheckin.parent_feedback === 'accurate' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'}`}
-                              >
-                                ✅ {isEs ? 'Exacto' : 'Accurate'}
-                              </button>
-                              <button
-                                onClick={() => handleParentCheckinFeedback(latestCheckin.id, 'inaccurate')}
-                                disabled={reviewingCheckinId === latestCheckin.id}
-                                className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition disabled:opacity-50 ${latestCheckin.parent_feedback === 'inaccurate' ? 'bg-red-600 text-white shadow-xs' : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'}`}
-                              >
-                                ⚠️ {isEs ? 'Inexacto' : 'Inaccurate'}
-                              </button>
-                            </div>
+                        {/* Parent Review UI */}
+                        <div className="border-t border-slate-200 pt-4 mt-2">
+                          <p className="text-sm font-semibold text-slate-800 mb-2">
+                            {isEs ? '¿Es precisa esta revisión?' : 'Is this check-in accurate?'}
+                          </p>
+                          <div className="flex gap-2 mb-3">
+                            <button
+                              onClick={() => handleParentCheckinFeedback(latestCheckin.id, 'accurate')}
+                              disabled={reviewingCheckinId === latestCheckin.id}
+                              className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1.5 ${
+                                latestCheckin.parent_feedback === 'accurate' 
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                                  : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              ✅ {isEs ? 'Precisa' : 'Accurate'}
+                            </button>
+                            <button
+                              onClick={() => handleParentCheckinFeedback(latestCheckin.id, 'inaccurate')}
+                              disabled={reviewingCheckinId === latestCheckin.id}
+                              className={`flex-1 py-1.5 px-3 rounded-lg text-sm font-medium transition flex items-center justify-center gap-1.5 ${
+                                latestCheckin.parent_feedback === 'inaccurate' 
+                                  ? 'bg-red-100 text-red-800 border border-red-300' 
+                                  : 'bg-white text-slate-600 border border-slate-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              ⚠️ {isEs ? 'Inexacta' : 'Inaccurate'}
+                            </button>
                           </div>
-
-                          {/* Parent Note Input */}
-                          <div className="flex gap-2 mt-2">
-                            <input
-                              type="text"
-                              value={parentNotes[latestCheckin.id] !== undefined ? parentNotes[latestCheckin.id] : (latestCheckin.parent_notes || '')}
+                          <div className="flex flex-col gap-2">
+                            <textarea
+                              className="w-full text-sm p-2.5 border border-slate-300 rounded-lg bg-white"
+                              rows={2}
+                              placeholder={isEs ? 'Nota para el entrenador (ej: en realidad durmió solo 6h)...' : 'Note for coach (e.g., actually slept only 6h)...'}
+                              value={parentNotes[latestCheckin.id] ?? ''}
                               onChange={e => setParentNotes(prev => ({ ...prev, [latestCheckin.id]: e.target.value }))}
-                              placeholder={isEs ? 'Nota para el entrenador (ej: durmió menos horas, se veía estresado)...' : 'Note for coach (e.g., actually slept only 6h, missed breakfast)...'}
-                              className="flex-1 border border-gray-300 rounded-md px-2.5 py-1 text-xs bg-white focus:ring-blue-500 focus:border-blue-500"
                             />
                             <button
                               onClick={() => handleSaveParentNote(latestCheckin.id)}
                               disabled={reviewingCheckinId === latestCheckin.id}
-                              className="bg-blue-600 text-white text-xs font-semibold px-3 py-1 rounded-md hover:bg-blue-700 transition disabled:opacity-50 shrink-0"
+                              className="self-end bg-slate-800 text-white text-xs font-bold px-4 py-1.5 rounded-lg hover:bg-slate-700 transition"
                             >
-                              {reviewingCheckinId === latestCheckin.id ? '...' : (isEs ? 'Guardar' : 'Save')}
+                              {isEs ? 'Guardar Nota' : 'Save Note'}
                             </button>
                           </div>
-                          {latestCheckin.parent_notes && (
-                            <p className="text-[11px] text-gray-600 mt-1.5 italic">
-                              💬 {isEs ? 'Nota registrada para el entrenador:' : 'Note for coach:'} "{latestCheckin.parent_notes}"
-                            </p>
-                          )}
                         </div>
+
                       </div>
                     ) : (
-                      <p className="text-xs text-gray-400 italic text-center py-6">
-                        {isEs ? 'Tu jugador aún no ha completado una revisión diaria.' : 'Your player has not submitted a daily check-in yet.'}
-                      </p>
+                      <p className="text-slate-400 text-sm italic">{isEs ? 'No hay revisiones.' : 'No check-ins yet.'}</p>
                     )}
                   </div>
 
-                  {/* Goals Tracker for this child */}
-                  <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
-                    <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-sm font-bold text-gray-900">{isEs ? '🎯 Metas y Progreso' : '🎯 Goals Tracker'}</h3>
-                      <div className="flex gap-1.5 text-[11px] font-semibold">
-                        <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
-                          🟡 {activeGoals.length} {isEs ? 'en progreso' : 'working'}
-                        </span>
-                        <span className="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                          🟢 {completedGoals.length} {isEs ? 'completadas' : 'done'}
-                        </span>
-                        {gaveUpGoals.length > 0 && (
-                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full">
-                            ⚪ {gaveUpGoals.length}
-                          </span>
+                  {/* Right Col: Badges & Chores */}
+                  <div className="space-y-6">
+                    {/* Earned Badges */}
+                    <div>
+                      <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-3">
+                        🏆 {isEs ? 'Insignias Recientes' : 'Recent Badges'}
+                      </h4>
+                      {stats && stats.badges_earned.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {stats.badges_earned.slice(-6).map(badgeId => {
+                            const badgeDef = BADGES.find(b => b.id === badgeId);
+                            if (!badgeDef) return null;
+                            return (
+                              <div key={badgeId} title={isEs ? badgeDef.nameEs : badgeDef.nameEn} className="w-10 h-10 bg-amber-50 rounded-full border border-amber-200 flex items-center justify-center text-xl shadow-sm">
+                                {badgeDef.icon}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-slate-400 text-xs">{isEs ? 'Aún no hay insignias.' : 'No badges earned yet.'}</p>
+                      )}
+                    </div>
+
+                    {/* Home Contributions Verification */}
+                    <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                      <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-1">
+                        🏡 {isEs ? 'Verificar Tareas del Hogar' : 'Verify Home Tasks'}
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mb-3">
+                        {isEs ? 'Otorga XP extra por la ayuda en casa.' : 'Award bonus XP for helping around the house.'}
+                      </p>
+
+                      <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                        {playerTasks.filter(t => t.completed).length === 0 ? (
+                          <p className="text-slate-400 text-xs italic">{isEs ? 'No hay tareas completadas.' : 'No completed tasks yet.'}</p>
+                        ) : (
+                          playerTasks.filter(t => t.completed).map(task => (
+                            <div key={task.id} className="bg-white p-2.5 rounded-lg border border-slate-200 shadow-sm flex justify-between items-center gap-2">
+                              <div>
+                                <p className="text-xs font-semibold text-slate-700">{task.task_name}</p>
+                                <p className="text-[10px] text-slate-400">{new Date(task.completed_at).toLocaleDateString()}</p>
+                              </div>
+                              <button
+                                onClick={() => toggleVerifyHomeTask(task.id, task.parent_verified)}
+                                disabled={verifyingTaskId === task.id}
+                                className={`shrink-0 px-2 py-1.5 rounded-md text-[10px] font-bold uppercase transition flex items-center gap-1 ${
+                                  task.parent_verified 
+                                    ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                                    : 'bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200'
+                                }`}
+                              >
+                                {task.parent_verified ? '🌟 ' + (isEs ? 'Verificada' : 'Verified') : '+ ' + (isEs ? 'Verificar' : 'Verify')}
+                              </button>
+                            </div>
+                          ))
                         )}
                       </div>
                     </div>
-
-                    {playerGoals.length === 0 ? (
-                      <p className="text-xs text-gray-400 italic text-center py-6">
-                        {isEs ? 'Tu jugador no tiene metas registradas aún.' : 'Your player has not created any goals yet.'}
-                      </p>
-                    ) : (
-                      <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                        {playerGoals.map(goal => {
-                          const s = (goal.status || 'active') as GoalStatus;
-                          const sCfg = GOAL_STATUSES[s] || GOAL_STATUSES.active;
-                          const clean = formatCleanGoal(goal.response, isEs);
-
-                          return (
-                            <div key={goal.id} className="bg-white border border-gray-200 rounded-lg p-3 text-xs shadow-2xs">
-                              <div className="flex justify-between items-center mb-1">
-                                <span className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-full border ${sCfg.badgeClass}`}>
-                                  <span className={`w-1.5 h-1.5 rounded-full ${sCfg.dotColor}`}></span>
-                                  {isEs ? sCfg.labelEs : sCfg.labelEn}
-                                </span>
-                                <span className="text-gray-400 text-[10px]">{new Date(goal.created_at).toLocaleDateString()}</span>
-                              </div>
-                              <p className="font-semibold text-gray-800 whitespace-pre-wrap">{clean.title}</p>
-                              {clean.plan && (
-                                <p className="text-gray-600 mt-1 text-[11px] whitespace-pre-wrap bg-gray-50 p-1.5 rounded">
-                                  {clean.plan}
-                                </p>
-                              )}
-                              {clean.apes && (
-                                <div className="mt-2 space-y-1 bg-gray-50 p-2 rounded text-[11px]">
-                                  {clean.apes.a && <div><strong className="text-blue-700">A (Why):</strong> {clean.apes.a}</div>}
-                                  {clean.apes.p && <div><strong className="text-emerald-700">P (Pictures):</strong> {clean.apes.p}</div>}
-                                  {clean.apes.e && <div><strong className="text-orange-700">E (Engineering):</strong> {clean.apes.e}</div>}
-                                  {clean.apes.s && <div><strong className="text-purple-700">S (Splash):</strong> {clean.apes.s}</div>}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+                    
                   </div>
                 </div>
 
-                {/* --- HELP AROUND THE HOUSE (PARENT VERIFICATION SECTION) --- */}
-                <div className="bg-blue-50/50 border border-blue-200 rounded-xl p-5">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">🏡</span>
-                      <h3 className="text-sm font-bold text-gray-900">
-                        {isEs ? 'Tareas y Ayuda en Casa (El Splash Familiar)' : 'Help Around the House (Family Splash)'}
-                      </h3>
-                    </div>
-                    <span className="text-xs text-blue-700 font-semibold">
-                      {playerHomeTasks.filter(t => t.parent_verified).length} / {playerHomeTasks.length} {isEs ? 'verificadas por ti' : 'verified by you'}
-                    </span>
-                  </div>
-
-                  {playerHomeTasks.length === 0 ? (
-                    <p className="text-xs text-gray-400 italic text-center py-4 bg-white rounded-lg border border-gray-100">
-                      {isEs ? 'Tu jugador aún no ha elegido tareas en casa para ayudar.' : 'Your player has not chosen any home helping chores yet.'}
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {playerHomeTasks.map(t => (
-                        <div
-                          key={t.id}
-                          className="bg-white border border-blue-100 rounded-lg p-3 flex items-center justify-between gap-3 text-xs shadow-2xs"
-                        >
-                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                            <span className={t.completed ? 'text-emerald-600 font-bold' : 'text-gray-400'}>
-                              {t.completed ? '✓' : '○'}
-                            </span>
-                            <span className={`font-semibold truncate ${t.completed ? 'text-gray-800' : 'text-gray-600'}`}>
-                              {t.task_name}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            <button
-                              onClick={() => toggleVerifyHomeTask(t.id, t.parent_verified)}
-                              disabled={verifyingTaskId === t.id}
-                              className={`px-3 py-1 rounded-md text-[11px] font-bold transition flex items-center gap-1 ${
-                                t.parent_verified
-                                  ? 'bg-purple-600 text-white shadow-2xs'
-                                  : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
-                              }`}
-                            >
-                              {t.parent_verified ? (
-                                <>🌟 {isEs ? '¡Verificado por ti!' : 'Verified by You!'}</>
-                              ) : (
-                                <>+ {isEs ? 'Confirmar Ayuda' : 'Verify Help'}</>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Direct Feedback & Support conversation for this child */}
-                <div className="pt-2">
+                {/* Feedback Thread (Full width bottom) */}
+                <div className="pt-2 border-t border-slate-100">
                   <FeedbackThread playerId={playerId} />
                 </div>
               </div>
