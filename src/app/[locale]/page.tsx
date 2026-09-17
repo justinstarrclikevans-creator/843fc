@@ -18,15 +18,9 @@ export default function HomePage() {
         <div className="flex gap-4 items-center flex-col sm:flex-row mt-8">
           <Link
             href={`/${locale}/login`}
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-blue-600 text-white gap-2 hover:bg-blue-700 text-sm sm:text-base h-10 sm:h-12 px-8"
+            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-blue-600 text-white gap-2 hover:bg-blue-700 text-lg font-bold sm:h-14 px-10 shadow-lg"
           >
-            {t('Auth.login')}
-          </Link>
-          <Link
-            href={`/${locale}/signup`}
-            className="rounded-full border border-solid border-gray-300 transition-colors flex items-center justify-center bg-white text-gray-900 gap-2 hover:bg-gray-100 text-sm sm:text-base h-10 sm:h-12 px-8"
-          >
-            {t('Auth.signup')}
+            {locale === 'es' ? '🚀 Entrar al Demo' : '🚀 Enter Demo Portal'}
           </Link>
         </div>
       </main>
